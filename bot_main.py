@@ -2,7 +2,6 @@ import os
 import json
 import time
 from telebot import TeleBot, types
-ort TeleBot, types
 from pathlib import Path
 from io import BytesIO
 from docx import Document
