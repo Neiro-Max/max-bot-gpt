@@ -99,10 +99,6 @@ if not TELEGRAM_TOKEN or not OPENAI_API_KEY:
 if not WEBHOOK_URL:
     raise ValueError("WEBHOOK_URL не задан.")
 
-bot.remove_webhook()
-bot.set_webhook(url=WEBHOOK_URL)
-
-Path(MEMORY_DIR).mkdir(exist_ok=True)
 openai.api_key = OPENAI_API_KEY
 bot = TeleBot(TELEGRAM_TOKEN)
 
