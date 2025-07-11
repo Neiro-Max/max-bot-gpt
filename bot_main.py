@@ -250,17 +250,17 @@ def handle_file_format(call):
 print("🤖 Neiro Max запущен.")
 from flask import Flask, request
 
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-
 app = Flask(__name__)
 
-@app.route('/webhook', methods=["POST"])
+@app.route("/webhook", methods=["POST"])
 def webhook():
-    json_str = request.get_data().decode("UTF-8")
-    update = types.Update.de_json(json_str)
-    bot.process_new_updates([update])
-    return '', 200
+    if request.headers.get("content-type") == "application/json":
+        json_string = request.get_data().decode("utf-8")
+        update = types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return "!", 200
+    else:
+        return "Invalid content type", 403
 
-bot.remove_webhook()
-bot.set_webhook(url=WEBHOOK_URL)
-print("🤖 Neiro Max запущен с Webhook.")
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
