@@ -149,12 +149,12 @@ def handle_rules(message):
 @bot.message_handler(func=lambda msg: msg.text == "📄 Тарифы")
 def handle_tariffs(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
-    markup.add(types.InlineKeyboardButton("🟢 GPT-3.5: Lite — 199₽", url="https://yookassa.ru/pay/gpt35_lite&quot;))
-    markup.add(types.InlineKeyboardButton("🟢 GPT-3.5: Pro — 299₽", url="https://yookassa.ru/pay/gpt35_pro&quot;))
-    markup.add(types.InlineKeyboardButton("🟢 GPT-3.5: Max — 399₽", url="https://yookassa.ru/pay/gpt35_max&quot;))
-    markup.add(types.InlineKeyboardButton("🔵 GPT-4o: Lite — 299₽", url="https://yookassa.ru/pay/gpt4o_lite&quot;))
-    markup.add(types.InlineKeyboardButton("🔵 GPT-4o: Pro — 499₽", url="https://yookassa.ru/pay/gpt4o_pro&quot;))
-    markup.add(types.InlineKeyboardButton("🔵 GPT-4o: Max — 999₽", url="https://yookassa.ru/pay/gpt4o_max&quot;))
+    markup.add(types.InlineKeyboardButton("🟢 GPT-3.5: Lite — 199₽", url="https://yookassa.ru/pay/gpt35_lite"))
+    markup.add(types.InlineKeyboardButton("🟢 GPT-3.5: Pro — 299₽", url="https://yookassa.ru/pay/gpt35_pro"))
+    markup.add(types.InlineKeyboardButton("🟢 GPT-3.5: Max — 399₽", url="https://yookassa.ru/pay/gpt35_max"))
+    markup.add(types.InlineKeyboardButton("🔵 GPT-4o: Lite — 299₽", url="https://yookassa.ru/pay/gpt4o_lite"))
+    markup.add(types.InlineKeyboardButton("🔵 GPT-4o: Pro — 499₽", url="https://yookassa.ru/pay/gpt4o_pro"))
+    markup.add(types.InlineKeyboardButton("🔵 GPT-4o: Max — 999₽", url="https://yookassa.ru/pay/gpt4o_max"))
 
     text = (
         "📦 *Тарифы Neiro Max:*\n\n"
