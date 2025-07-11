@@ -92,6 +92,10 @@ if not TELEGRAM_TOKEN or not OPENAI_API_KEY:
 
 openai.api_key = OPENAI_API_KEY
 bot = TeleBot(TELEGRAM_TOKEN)
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+if WEBHOOK_URL:
+    bot.remove_webhook()
+    bot.set_webhook(url=WEBHOOK_URL)
 Path(MEMORY_DIR).mkdir(exist_ok=True)
 
 # === ОБРАБОТЧИКИ ===
@@ -248,9 +252,39 @@ def handle_file_format(call):
         bot.send_document(chat_id, ("neiro_max_output.docx", word_bytes))
 
 print("🤖 Neiro Max запущен.")
-from flask import Flask, request
+from flask import Flask, request, abort
+import hmac
+import hashlib
 
 app = Flask(__name__)
+
+@app.route("/yookassa/webhook", methods=["POST"])
+def yookassa_webhook():
+    try:
+        data = request.get_json()
+        event = data.get("event")
+        payment_data = data.get("object", {})
+
+        if event == "payment.succeeded":
+            user_id = payment_data["metadata"].get("user_id")
+            amount = payment_data["amount"]["value"]
+            currency = payment_data["amount"]["currency"]
+            print(f"💰 Платёж прошёл: {amount} {currency} от пользователя {user_id}")
+
+        elif event == "payment.canceled":
+            print("❌ Платёж отменён или не прошёл.")
+
+        elif event == "payment.waiting_for_capture":
+            print("⌛ Ожидает подтверждения вручную.")
+
+        else:
+            print(f"📡 Получено другое событие: {event}")
+
+        return "OK", 200
+
+    except Exception as e:
+        print(f"⚠️ Ошибка в вебхуке ЮKassa: {e}")
+        abort(400)
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
