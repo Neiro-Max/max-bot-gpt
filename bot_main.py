@@ -82,20 +82,33 @@ def format_buttons():
     markup.add(types.InlineKeyboardButton("📝 Word", callback_data="save_word"))
     return markup
 
+import os
+from pathlib import Path
+from telebot import TeleBot
+import openai
+
 # === ИНИЦИАЛИЗАЦИЯ БОТА ===
 used_trials = load_used_trials()
+
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 if not TELEGRAM_TOKEN or not OPENAI_API_KEY:
     raise ValueError("TELEGRAM_TOKEN или OPENAI_API_KEY не заданы.")
+if not WEBHOOK_URL:
+    raise ValueError("WEBHOOK_URL не задан.")
 
+bot.remove_webhook()
+bot.set_webhook(url=WEBHOOK_URL)
+
+Path(MEMORY_DIR).mkdir(exist_ok=True)
 openai.api_key = OPENAI_API_KEY
 bot = TeleBot(TELEGRAM_TOKEN)
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-if WEBHOOK_URL:
-    bot.remove_webhook()
-    bot.set_webhook(url=WEBHOOK_URL)
+
+bot.remove_webhook()
+bot.set_webhook(url=WEBHOOK_URL)
+
 Path(MEMORY_DIR).mkdir(exist_ok=True)
 
 # === ОБРАБОТЧИКИ ===
