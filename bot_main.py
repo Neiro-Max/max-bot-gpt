@@ -52,9 +52,12 @@ def create_payment(amount_rub, description, return_url):
             "capture": True,
             "description": description
         })
+        print("✅ Ссылка на оплату:", payment.confirmation.confirmation_url)
         return payment.confirmation.confirmation_url
     except Exception as e:
-        print(f"Ошибка при создании платежа: {e}")
+        print("❌ Ошибка при создании платежа:")
+        import traceback
+        traceback.print_exc()
         return None
 
 def load_used_trials():
