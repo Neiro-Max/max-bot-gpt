@@ -1,21 +1,26 @@
 import os
 import json
 import time
-from telebot import TeleBot, types
 from pathlib import Path
 from io import BytesIO
+from flask import Flask, request
+from telebot import TeleBot, types
 from docx import Document
 from reportlab.pdfgen import canvas
-import openai
-from flask import Flask, request
 from yookassa import Configuration, Payment
+import openai
 
-# === КОНФИГ ===
+# === НАСТРОЙКИ ===
 YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
 YOOKASSA_SECRET_KEY = os.getenv("YOOKASSA_SECRET_KEY")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+
 Configuration.account_id = YOOKASSA_SHOP_ID
 Configuration.secret_key = YOOKASSA_SECRET_KEY
 
+# === КОНСТАНТЫ ===
 USED_TRIALS_FILE = "used_trials.json"
 MEMORY_DIR = "memory"
 ADMIN_ID = 1034982624
@@ -24,6 +29,7 @@ TRIAL_TOKEN_LIMIT = 10_000
 TRIAL_DURATION_SECONDS = 24 * 3600
 BOT_NAME = "Neiro Max"
 
+# === ХРАНИЛИЩА ===
 user_token_limits = {}
 user_modes = {}
 user_histories = {}
@@ -41,38 +47,17 @@ available_modes = {
     "истории": "Ты — рассказчик. Превращай каждый ответ в интересную историю."
 }
 
-def create_payment(amount_rub, description, return_url):
-    try:
-        payment = Payment.create({
-            "amount": {"value": f"{amount_rub}.00", "currency": "RUB"},
-            "confirmation": {
-                "type": "redirect",
-                "return_url": return_url
-            },
-            "capture": True,
-            "description": description
-        })
-        print("✅ Ссылка на оплату:", payment.confirmation.confirmation_url)
-        return payment.confirmation.confirmation_url
-    except Exception as e:
-        print("❌ Ошибка при создании платежа:")
-        import traceback
-        traceback.print_exc()
-        return None
+# === ИНИЦИАЛИЗАЦИЯ ===
+used_trials = json.load(open(USED_TRIALS_FILE, encoding="utf-8")) if os.path.exists(USED_TRIALS_FILE) else {}
+openai.api_key = OPENAI_API_KEY
+bot = TeleBot(TELEGRAM_TOKEN)
+if WEBHOOK_URL:
+    bot.remove_webhook()
+    bot.set_webhook(url=WEBHOOK_URL)
+Path(MEMORY_DIR).mkdir(exist_ok=True)
+app = Flask(__name__)
 
-def load_used_trials():
-    if os.path.exists(USED_TRIALS_FILE):
-        with open(USED_TRIALS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
-
-def save_used_trials(data):
-    with open(USED_TRIALS_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
-
-def is_admin(chat_id):
-    return int(chat_id) == ADMIN_ID
-
+# === УТИЛИТЫ ===
 def load_history(chat_id):
     path = f"{MEMORY_DIR}/{chat_id}.json"
     return json.load(open(path, "r", encoding="utf-8")) if os.path.exists(path) else []
@@ -84,72 +69,89 @@ def save_history(chat_id, history):
 
 def main_menu(chat_id=None):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add("🚀 Запустить Neiro Max")
-    markup.add("💡 Сменить стиль", "📄 Тарифы")
-    markup.add("📘 Правила")
-    if is_admin(chat_id):
-        markup.add("♻️ Сброс пробника")
+    markup.add("\ud83d\ude80 Запустить Neiro Max")
+    markup.add("\ud83d\udca1 Сменить стиль", "\ud83d\udcc4 Тарифы")
+    markup.add("\ud83d\udcdc Правила")
+    if str(chat_id) == str(ADMIN_ID):
+        markup.add("\u267b\ufe0f Сброс пробника")
     return markup
 
 def style_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     for mode in available_modes:
         markup.add(mode.capitalize())
-    markup.add("📋 Главное меню")
+    markup.add("\ud83d\udccb Главное меню")
     return markup
 
 def format_buttons():
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("📄 PDF", callback_data="save_pdf"))
-    markup.add(types.InlineKeyboardButton("📝 Word", callback_data="save_word"))
+    markup.add(types.InlineKeyboardButton("\ud83d\udcc4 PDF", callback_data="save_pdf"))
+    markup.add(types.InlineKeyboardButton("\ud83d\udcdd Word", callback_data="save_word"))
     return markup
 
-used_trials = load_used_trials()
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-openai.api_key = OPENAI_API_KEY
-bot = TeleBot(TELEGRAM_TOKEN)
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-if WEBHOOK_URL:
-    bot.remove_webhook()
-    bot.set_webhook(url=WEBHOOK_URL)
-Path(MEMORY_DIR).mkdir(exist_ok=True)
+def save_used_trials(data):
+    with open(USED_TRIALS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
 
+def create_payment(amount_rub, description, return_url, chat_id):
+    try:
+        payment = Payment.create({
+            "amount": {"value": f"{amount_rub}.00", "currency": "RUB"},
+            "confirmation": {
+                "type": "redirect",
+                "return_url": return_url
+            },
+            "capture": True,
+            "description": description,
+            "metadata": {"chat_id": str(chat_id), "model": "gpt-4o" if "4o" in description else "gpt-3.5-turbo"}
+        })
+        return payment.confirmation.confirmation_url
+    except Exception as e:
+        print("\u274c Ошибка при создании платежа:", e)
+        return None
+
+# === ОБРАБОТЧИКИ ===
 @bot.message_handler(commands=["start"])
 def handle_start(message):
     chat_id = str(message.chat.id)
     if chat_id in used_trials:
-        bot.send_message(chat_id, "⛔ Вы уже использовали пробный доступ.")
+        bot.send_message(chat_id, "\u26d4\ufe0f Вы уже использовали пробный доступ.")
         return
     used_trials[chat_id] = True
     trial_start_times[chat_id] = time.time()
     save_used_trials(used_trials)
-    bot.send_message(chat_id, f"Привет! Я {BOT_NAME} — твой ассистент. Чем могу помочь? 😉", reply_markup=main_menu(message.chat.id))
+    bot.send_message(chat_id, f"Привет! Я {BOT_NAME} — твой ассистент. Чем могу помочь?", reply_markup=main_menu(chat_id))
     user_modes[message.chat.id] = "копирайтер"
     user_histories[message.chat.id] = []
     user_models[message.chat.id] = "gpt-3.5-turbo"
     user_token_limits[message.chat.id] = 0
 
-@bot.message_handler(func=lambda msg: msg.text == "📄 Тарифы")
+@bot.message_handler(func=lambda msg: msg.text == "\ud83d\udcc4 Тарифы")
 def handle_tariffs(message):
-    return_url = "https://t.me/NeiroMaxBot"
+    return_url = WEBHOOK_URL
     buttons = []
     tariffs = [
         ("GPT-3.5: Lite — 199₽", 199, "GPT-3.5 Lite"),
-        ("GPT-3.5: Pro — 299₽", 299, "GPT-3.5 Pro"),
-        ("GPT-3.5: Max — 399₽", 399, "GPT-3.5 Max"),
-        ("GPT-4o: Lite — 299₽", 299, "GPT-4o Lite"),
-        ("GPT-4o: Pro — 499₽", 499, "GPT-4o Pro"),
         ("GPT-4o: Max — 999₽", 999, "GPT-4o Max"),
     ]
     for label, price, desc in tariffs:
-        url = create_payment(price, desc, return_url)
+        url = create_payment(price, desc, return_url, message.chat.id)
         if url:
-            buttons.append(types.InlineKeyboardButton(f"💳 {label}", url=url))
+            buttons.append(types.InlineKeyboardButton(f"\ud83d\udcb3 {label}", url=url))
     markup = types.InlineKeyboardMarkup(row_width=1)
     for btn in buttons:
         markup.add(btn)
-    bot.send_message(message.chat.id, "📦 Выберите тариф:", reply_markup=markup)
+    bot.send_message(message.chat.id, "\ud83d\udce6 Выберите тариф:", reply_markup=markup)
+
+@bot.message_handler(func=lambda msg: msg.text == "\ud83d\udca1 Сменить стиль")
+def handle_style_change(message):
+    bot.send_message(message.chat.id, "Выберите стиль общения:", reply_markup=style_keyboard())
+
+@bot.message_handler(func=lambda msg: msg.text in [m.capitalize() for m in available_modes])
+def handle_style_selection(message):
+    selected = message.text.lower()
+    user_modes[message.chat.id] = selected
+    bot.send_message(message.chat.id, f"\u2705 Стиль общения установлен: {selected}", reply_markup=main_menu(message.chat.id))
 
 @bot.message_handler(func=lambda msg: True)
 def handle_prompt(message):
@@ -159,7 +161,7 @@ def handle_prompt(message):
     time_elapsed = time.time() - trial_start_times[chat_id]
     tokens_used = user_token_limits.get(chat_id, 0)
     if time_elapsed > TRIAL_DURATION_SECONDS or tokens_used >= TRIAL_TOKEN_LIMIT:
-        bot.send_message(chat_id, "⛔ Пробный период завершён. Пожалуйста, выберите тариф в разделе 📄 Тарифы.")
+        bot.send_message(chat_id, "\u26d4\ufe0f Пробный период завершён. Пожалуйста, выберите тариф.")
         return
     prompt = message.text
     mode = user_modes.get(int(chat_id), "копирайтер")
@@ -201,18 +203,28 @@ def handle_file_format(call):
         word_bytes.seek(0)
         bot.send_document(chat_id, ("neiro_max_output.docx", word_bytes))
 
-print("🤖 Neiro Max запущен.")
-app = Flask(__name__)
-
 @app.route("/webhook", methods=["POST"])
 def webhook():
     if request.headers.get("content-type") == "application/json":
         json_string = request.get_data().decode("utf-8")
         update = types.Update.de_json(json_string)
         bot.process_new_updates([update])
-        return "!", 200
+        return "OK", 200
     else:
         return "Invalid content type", 403
+
+@app.route("/webhook", methods=["GET"])
+def confirm_payment():
+    chat_id = request.args.get("chat_id")
+    tariff = request.args.get("tariff")
+    if not chat_id or not tariff:
+        return "Недостаточно данных", 400
+    if "GPT-4o" in tariff:
+        user_models[int(chat_id)] = "gpt-4o"
+    else:
+        user_models[int(chat_id)] = "gpt-3.5-turbo"
+    bot.send_message(int(chat_id), f"\u2705 Оплата тарифа '{tariff}' прошла успешно! Используется модель: {user_models[int(chat_id)]}.", reply_markup=main_menu(int(chat_id)))
+    return "OK", 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
