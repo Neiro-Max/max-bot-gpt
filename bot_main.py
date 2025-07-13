@@ -41,7 +41,7 @@ available_modes = {
     "истории": "Ты — рассказчик. Превращай каждый ответ в интересную историю."
 }
 
-def create_payment(amount_rub, description, return_url):
+def create_payment(amount_rub, description, return_url, chat_id):
     try:
         payment = Payment.create({
             "amount": {"value": f"{amount_rub}.00", "currency": "RUB"},
@@ -50,14 +50,12 @@ def create_payment(amount_rub, description, return_url):
                 "return_url": return_url
             },
             "capture": True,
-            "description": description
+            "description": description,
+            "metadata": {"chat_id": str(chat_id), "model": "gpt-4o" if "4o" in description else "gpt-3.5-turbo"}
         })
-        print("✅ Ссылка на оплату:", payment.confirmation.confirmation_url)
         return payment.confirmation.confirmation_url
     except Exception as e:
-        print("❌ Ошибка при создании платежа:")
-        import traceback
-        traceback.print_exc()
+        print("Ошибка при создании платежа:", e)
         return None
 
 def load_used_trials():
@@ -130,9 +128,20 @@ def handle_start(message):
     user_models[message.chat.id] = "gpt-3.5-turbo"
     user_token_limits[message.chat.id] = 0
 
+@bot.message_handler(func=lambda msg: msg.text == "💡 Сменить стиль")
+def handle_style_change(message):
+    bot.send_message(message.chat.id, "🧠 Выберите стиль общения:", reply_markup=style_keyboard())
+
+@bot.message_handler(func=lambda msg: msg.text in [mode.capitalize() for mode in available_modes])
+def handle_style_selection(message):
+    mode = message.text.lower()
+    if mode in available_modes:
+        user_modes[message.chat.id] = mode
+        bot.send_message(message.chat.id, f"✅ Стиль сменён на: {mode}", reply_markup=main_menu(message.chat.id))
+
 @bot.message_handler(func=lambda msg: msg.text == "📄 Тарифы")
 def handle_tariffs(message):
-    return_url = "https://t.me/NeiroMaxBot"
+    return_url = os.getenv("RETURN_URL", "https://t.me/NeiroMaxBot")
     buttons = []
     tariffs = [
         ("GPT-3.5: Lite — 199₽", 199, "GPT-3.5 Lite"),
@@ -143,7 +152,7 @@ def handle_tariffs(message):
         ("GPT-4o: Max — 999₽", 999, "GPT-4o Max"),
     ]
     for label, price, desc in tariffs:
-        url = create_payment(price, desc, return_url)
+        url = create_payment(price, desc, return_url, message.chat.id)
         if url:
             buttons.append(types.InlineKeyboardButton(f"💳 {label}", url=url))
     markup = types.InlineKeyboardMarkup(row_width=1)
@@ -201,8 +210,28 @@ def handle_file_format(call):
         word_bytes.seek(0)
         bot.send_document(chat_id, ("neiro_max_output.docx", word_bytes))
 
-print("🤖 Neiro Max запущен.")
 app = Flask(__name__)
+
+@app.route("/webhook", methods=["GET"])
+def confirm_payment():
+    chat_id = request.args.get("chat_id")
+    tariff = request.args.get("tariff")
+
+    if not chat_id or not tariff:
+        return "Недостаточно данных", 400
+
+    if "GPT-4o" in tariff.upper():
+        user_models[int(chat_id)] = "gpt-4o"
+    else:
+        user_models[int(chat_id)] = "gpt-3.5-turbo"
+
+    bot.send_message(
+        int(chat_id),
+        f"✅ Оплата тарифа «{tariff}» прошла успешно!\nТеперь вы используете модель: {user_models[int(chat_id)]}.",
+        reply_markup=main_menu(int(chat_id))
+    )
+
+    return "OK", 200
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -216,3 +245,4 @@ def webhook():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
