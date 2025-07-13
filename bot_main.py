@@ -1,4 +1,3 @@
-
 import os
 import json
 import time
@@ -42,7 +41,7 @@ available_modes = {
     "истории": "Ты — рассказчик. Превращай каждый ответ в интересную историю."
 }
 
-def create_payment(amount_rub, description, return_url, chat_id):
+def create_payment(amount_rub, description, return_url):
     try:
         payment = Payment.create({
             "amount": {"value": f"{amount_rub}.00", "currency": "RUB"},
@@ -51,13 +50,15 @@ def create_payment(amount_rub, description, return_url, chat_id):
                 "return_url": return_url
             },
             "capture": True,
-            "description": description,
-            "metadata": {"chat_id": str(chat_id), "model": "gpt-4o" if "4o" in description else "gpt-3.5-turbo"}
+            "description": description
         })
-        return payment.confirmation.confirmation_url
+        print("✅ Ссылка на оплату:", payment.confirmation.confirmation_url)
+        return payment.confirmation.confirmation_url, description
     except Exception as e:
-        print("Ошибка при создании платежа:", e)
-        return None
+        print("❌ Ошибка при создании платежа:")
+        import traceback
+        traceback.print_exc()
+        return None, None
 
 def load_used_trials():
     if os.path.exists(USED_TRIALS_FILE):
@@ -114,57 +115,123 @@ if WEBHOOK_URL:
     bot.set_webhook(url=WEBHOOK_URL)
 Path(MEMORY_DIR).mkdir(exist_ok=True)
 
-# === ОБРАБОТЧИКИ ===
-@bot.message_handler(func=lambda msg: msg.text == "💡 Сменить стиль")
-def handle_style_change(message):
-    bot.send_message(message.chat.id, "Выберите стиль общения:", reply_markup=style_keyboard())
+@bot.message_handler(commands=["start"])
+def handle_start(message):
+    chat_id = str(message.chat.id)
+    if chat_id in used_trials:
+        bot.send_message(chat_id, "⛔ Вы уже использовали пробный доступ.")
+        return
+    used_trials[chat_id] = True
+    trial_start_times[chat_id] = time.time()
+    save_used_trials(used_trials)
+    bot.send_message(chat_id, f"Привет! Я {BOT_NAME} — твой ассистент. Чем могу помочь? 😉", reply_markup=main_menu(message.chat.id))
+    user_modes[message.chat.id] = "копирайтер"
+    user_histories[message.chat.id] = []
+    user_models[message.chat.id] = "gpt-3.5-turbo"
+    user_token_limits[message.chat.id] = 0
 
-@bot.message_handler(func=lambda msg: msg.text in [mode.capitalize() for mode in available_modes])
-def handle_style_selection(message):
-    mode = message.text.lower()
-    if mode in available_modes:
-        user_modes[message.chat.id] = mode
-        bot.send_message(message.chat.id, f"✅ Стиль сменён на: {mode}", reply_markup=main_menu(message.chat.id))
+@bot.message_handler(func=lambda msg: msg.text == "📄 Тарифы")
+def handle_tariffs(message):
+    return_url = "https://t.me/NeiroMaxBot"
+    buttons = []
+    tariffs = [
+        ("GPT-3.5: Lite — 199₽", 199, "GPT-3.5 Lite"),
+        ("GPT-3.5: Pro — 299₽", 299, "GPT-3.5 Pro"),
+        ("GPT-3.5: Max — 399₽", 399, "GPT-3.5 Max"),
+        ("GPT-4o: Lite — 299₽", 299, "GPT-4o Lite"),
+        ("GPT-4o: Pro — 499₽", 499, "GPT-4o Pro"),
+        ("GPT-4o: Max — 999₽", 999, "GPT-4o Max"),
+    ]
+    for label, price, desc in tariffs:
+        url, model = create_payment(price, desc, return_url)
+        if url:
+            bot.send_message(message.chat.id, f"✅ Оплата тарифа «{desc}» прошла успешно! Модель активирована: {'gpt-4o' if '4o' in desc else 'gpt-3.5-turbo'}.")
+            user_models[message.chat.id] = "gpt-4o" if "4o" in desc else "gpt-3.5-turbo"
+            buttons.append(types.InlineKeyboardButton(f"💳 {label}", url=url))
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for btn in buttons:
+        markup.add(btn)
+    bot.send_message(message.chat.id, "📦 Выберите тариф:", reply_markup=markup)
 
 @bot.message_handler(func=lambda msg: msg.text == "📘 Правила")
 def handle_rules(message):
-    rules = (
-        "<b>Правила использования бота Neiro Max:</b>
-
-"
-        "✅ <b>Бесплатный пробный доступ:</b>
-"
-        "• Длительность — 24 часа или 10 000 токенов (что наступит раньше).
-
-"
-        "❌ <b>Запрещено:</b>
-"
-        "• Запросы, нарушающие законодательство РФ;
-"
-        "• Темы: насилие, терроризм, экстремизм, порнография, дискриминация, мошенничество.
-
-"
-        "⚠️ <b>Важно:</b>
-"
-        "• GPT-чат может допускать ошибки.
-"
-        "• Ответы не являются истиной в последней инстанции.
-
-"
+    rules_text = (
+        "<b>Правила использования бота Neiro Max:</b>\n\n"
+        "✅ <b>Бесплатный пробный доступ:</b>\n"
+        "• Длительность — 24 часа или 10 000 токенов (что наступит раньше).\n\n"
+        "❌ <b>Запрещено:</b>\n"
+        "• Запросы, нарушающие законодательство РФ;\n"
+        "• Темы: насилие, терроризм, экстремизм, порнография, дискриминация, мошенничество.\n\n"
+        "⚠️ <b>Важно:</b>\n"
+        "• GPT-чат может допускать ошибки.\n"
+        "• Ответы не являются истиной в последней инстанции.\n\n"
         "Спасибо, что выбрали Neiro Max!"
     )
-    bot.send_message(message.chat.id, rules, parse_mode="HTML")
+    bot.send_message(message.chat.id, rules_text, parse_mode="HTML")
 
 @bot.message_handler(func=lambda msg: msg.text == "♻️ Сброс пробника")
 def handle_reset_trial(message):
-    if is_admin(message.chat.id):
-        chat_id = message.chat.id
-        used_trials.pop(str(chat_id), None)
-        trial_start_times.pop(chat_id, None)
-        save_used_trials(used_trials)
-        bot.send_message(chat_id, "✅ Пробный период сброшен.")
+    chat_id = str(message.chat.id)
+    if not is_admin(chat_id):
+        bot.send_message(chat_id, "⛔ Эта команда доступна только администратору.")
+        return
+    trial_start_times[chat_id] = time.time()
+    user_token_limits[chat_id] = 0
+    used_trials[chat_id] = False
+    save_used_trials(used_trials)
+    bot.send_message(chat_id, "✅ Пробный доступ успешно сброшен.")
 
-# === FLASK APP ===
+@bot.message_handler(func=lambda msg: True)
+def handle_prompt(message):
+    chat_id = str(message.chat.id)
+    if chat_id not in trial_start_times:
+        trial_start_times[chat_id] = time.time()
+    time_elapsed = time.time() - trial_start_times[chat_id]
+    tokens_used = user_token_limits.get(chat_id, 0)
+    if time_elapsed > TRIAL_DURATION_SECONDS or tokens_used >= TRIAL_TOKEN_LIMIT:
+        bot.send_message(chat_id, "⛔ Пробный период завершён. Пожалуйста, выберите тариф в разделе 📄 Тарифы.")
+        return
+    prompt = message.text
+    mode = user_modes.get(int(chat_id), "копирайтер")
+    history = load_history(chat_id)
+    messages = [{"role": "system", "content": available_modes[mode]}] + history + [{"role": "user", "content": prompt}]
+    model = user_models.get(int(chat_id), "gpt-3.5-turbo")
+    try:
+        response = openai.ChatCompletion.create(model=model, messages=messages)
+        reply = response["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        bot.send_message(chat_id, f"Ошибка: {e}")
+        return
+    user_token_limits[chat_id] = tokens_used + len(prompt)
+    history.append({"role": "user", "content": prompt})
+    history.append({"role": "assistant", "content": reply})
+    save_history(chat_id, history)
+    bot.send_message(chat_id, reply, reply_markup=format_buttons())
+
+@bot.callback_query_handler(func=lambda call: call.data in ["save_pdf", "save_word"])
+def handle_file_format(call):
+    chat_id = call.message.chat.id
+    history = load_history(str(chat_id))
+    text = "\n".join(m["content"] for m in history if m["role"] != "system")
+    if call.data == "save_pdf":
+        pdf_bytes = BytesIO()
+        pdf = canvas.Canvas(pdf_bytes)
+        y = 800
+        for line in text.split("\n"):
+            pdf.drawString(40, y, line)
+            y -= 15
+        pdf.save()
+        pdf_bytes.seek(0)
+        bot.send_document(chat_id, ("neiro_max_output.pdf", pdf_bytes))
+    else:
+        doc = Document()
+        doc.add_paragraph(text)
+        word_bytes = BytesIO()
+        doc.save(word_bytes)
+        word_bytes.seek(0)
+        bot.send_document(chat_id, ("neiro_max_output.docx", word_bytes))
+
+print("🤖 Neiro Max запущен.")
 app = Flask(__name__)
 
 @app.route("/webhook", methods=["POST"])
@@ -174,23 +241,8 @@ def webhook():
         update = types.Update.de_json(json_string)
         bot.process_new_updates([update])
         return "!", 200
-    return "Invalid content type", 403
-
-@app.route("/webhook", methods=["GET"])
-def confirm_payment():
-    chat_id = request.args.get("chat_id")
-    tariff = request.args.get("tariff")
-    if not chat_id or not tariff:
-        return "Missing chat_id or tariff", 400
-
-    if "GPT-4o" in tariff:
-        user_models[int(chat_id)] = "gpt-4o"
     else:
-        user_models[int(chat_id)] = "gpt-3.5-turbo"
-
-    bot.send_message(int(chat_id), f"✅ Оплата тарифа «{tariff}» прошла успешно!
-Модель активирована: {user_models[int(chat_id)]}.", reply_markup=main_menu(int(chat_id)))
-    return "OK", 200
+        return "Invalid content type", 403
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
