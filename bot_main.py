@@ -215,6 +215,15 @@ def handle_launch_neiro_max(message):
     bot.send_message(message.chat.id, "Готов к работе! Чем могу помочь?", reply_markup=main_menu(message.chat.id))
 
 
+
+@bot.message_handler(func=lambda msg: msg.text.lower() in [m.lower() for m in available_modes])
+def handle_style_selection(message):
+    chat_id = str(message.chat.id)
+    selected = message.text.lower()
+    user_modes[chat_id] = selected
+    bot.send_message(chat_id, f"✅ Стиль общения изменён на: <b>{selected.capitalize()}</b>", parse_mode="HTML")
+
+
 @bot.message_handler(func=lambda msg: True)
 def handle_prompt(message):
     chat_id = str(message.chat.id)
@@ -287,6 +296,8 @@ def yookassa_webhook():
         description = obj.get("description", "")
         chat_id = extract_chat_id_from_description(description)
         if chat_id:
+            if chat_id in user_models:
+                return jsonify({"status": "already activated"})
             if "GPT-3.5" in description:
                 user_models[chat_id] = "gpt-3.5-turbo"
             elif "GPT-4" in description:
@@ -297,4 +308,3 @@ def yookassa_webhook():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-
