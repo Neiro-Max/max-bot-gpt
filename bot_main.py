@@ -284,8 +284,7 @@ def yookassa_webhook():
                 user_models[int(chat_id)] = "gpt-4o"
             else:
                 user_models[int(chat_id)] = "gpt-3.5-turbo"
-            bot.send_message(int(chat_id), f"✅ Оплата прошла успешно!\n"
-                                           f"Активирован тариф: <b>{description}</b>", parse_mode="HTML")
+         bot.send_message(int(chat_id), f"✅ Оплата прошла успешно!\nАктивирован тариф: <b>{description}</b>", parse_mode="HTML")
         else:
             print("⚠️ В webhook не передан chat_id.")
         return "", 200
