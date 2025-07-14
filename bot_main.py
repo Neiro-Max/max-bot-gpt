@@ -226,30 +226,50 @@ def handle_style_selection(message):
 @bot.message_handler(func=lambda msg: True)
 def handle_prompt(message):
     chat_id = str(message.chat.id)
+
     if chat_id not in trial_start_times:
         trial_start_times[chat_id] = time.time()
+
+    # Проверка окончания пробника
     time_elapsed = time.time() - trial_start_times[chat_id]
     tokens_used = user_token_limits.get(chat_id, 0)
     if time_elapsed > TRIAL_DURATION_SECONDS or tokens_used >= TRIAL_TOKEN_LIMIT:
         bot.send_message(chat_id, "⛔ Пробный период завершён. Пожалуйста, выберите тариф в разделе 📄 Тарифы.")
         return
-    prompt = message.text
+
+    prompt = message.text.strip()
     mode = user_modes.get(int(chat_id), "копирайтер")
+    model = user_models.get(int(chat_id), "gpt-3.5-turbo")
+
+    # 🔒 Фильтрация по стилю
+    forbidden = {
+        "копирайтер": ["психолог", "депресс", "поддерж", "тревож"],
+        "деловой": ["юмор", "шутк", "прикол"],
+        "гопник": ["академ", "научн", "профессор"],
+        "профессор": ["шутк", "гопник", "жиза"]
+    }
+    if any(word in prompt.lower() for word in forbidden.get(mode, [])):
+        bot.send_message(chat_id, f"⚠️ Сейчас выбран стиль: <b>{mode.capitalize()}</b>.\nЗапрос не соответствует выбранному стилю.\nСначала измени стиль через кнопку 💡", parse_mode="HTML")
+        return
+
+    # Загрузка истории
     history = load_history(chat_id)
     messages = [{"role": "system", "content": available_modes[mode]}] + history + [{"role": "user", "content": prompt}]
-    model = user_models.get(int(chat_id), "gpt-3.5-turbo")
+
     try:
         response = openai.ChatCompletion.create(model=model, messages=messages)
         reply = response["choices"][0]["message"]["content"].strip()
     except Exception as e:
         bot.send_message(chat_id, f"Ошибка: {e}")
         return
+
+    # Сохраняем токены и историю
     user_token_limits[chat_id] = tokens_used + len(prompt)
     history.append({"role": "user", "content": prompt})
     history.append({"role": "assistant", "content": reply})
     save_history(chat_id, history)
-    bot.send_message(chat_id, reply, reply_markup=format_buttons())
 
+    bot.send_message(chat_id, reply, reply_markup=format_buttons())
 @bot.callback_query_handler(func=lambda call: call.data in ["save_pdf", "save_word"])
 def handle_file_format(call):
     chat_id = call.message.chat.id
