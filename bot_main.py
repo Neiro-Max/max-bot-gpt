@@ -1,3 +1,4 @@
+
 import os
 import json
 import time
@@ -29,7 +30,6 @@ user_modes = {}
 user_histories = {}
 user_models = {}
 trial_start_times = {}
-paid_users = {}
 
 available_modes = {
     "психолог": "Ты — внимательный и эмпатичный психолог. Говори с заботой, мягко и поддерживающе.",
@@ -42,7 +42,7 @@ available_modes = {
     "истории": "Ты — рассказчик. Превращай каждый ответ в интересную историю."
 }
 
-def create_payment(amount_rub, description, return_url):
+def create_payment(amount_rub, description, return_url, chat_id=None):
     try:
         payment = Payment.create({
             "amount": {"value": f"{amount_rub}.00", "currency": "RUB"},
@@ -52,9 +52,7 @@ def create_payment(amount_rub, description, return_url):
             },
             "capture": True,
             "description": description,
-            "metadata": {
-                "description": description
-            }
+            "metadata": {"chat_id": str(chat_id)} if chat_id else {}
         })
         print("✅ Ссылка на оплату:", payment.confirmation.confirmation_url)
         return payment.confirmation.confirmation_url
@@ -95,13 +93,6 @@ def main_menu(chat_id=None):
         markup.add("♻️ Сброс пробника")
     return markup
 
-def style_keyboard():
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    for mode in available_modes:
-        markup.add(mode.capitalize())
-    markup.add("📋 Главное меню")
-    return markup
-
 def format_buttons():
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("📄 PDF", callback_data="save_pdf"))
@@ -118,6 +109,8 @@ if WEBHOOK_URL:
     bot.remove_webhook()
     bot.set_webhook(url=WEBHOOK_URL)
 Path(MEMORY_DIR).mkdir(exist_ok=True)
+
+app = Flask(__name__)
 
 @bot.message_handler(commands=["start"])
 def handle_start(message):
@@ -147,7 +140,7 @@ def handle_tariffs(message):
         ("GPT-4o: Max — 999₽", 999, "GPT-4o Max"),
     ]
     for label, price, desc in tariffs:
-        url = create_payment(price, desc, return_url)
+        url = create_payment(price, desc, return_url, chat_id=message.chat.id)
         if url:
             buttons.append(types.InlineKeyboardButton(f"💳 {label}", url=url))
     markup = types.InlineKeyboardMarkup(row_width=1)
@@ -155,16 +148,15 @@ def handle_tariffs(message):
         markup.add(btn)
     bot.send_message(message.chat.id, "📦 Выберите тариф:", reply_markup=markup)
 
-app = Flask(__name__)
-
 @app.route("/webhook", methods=["POST"])
-def webhook():
+def telegram_webhook():
     if request.headers.get("content-type") == "application/json":
         json_string = request.get_data().decode("utf-8")
         update = types.Update.de_json(json_string)
         bot.process_new_updates([update])
         return "!", 200
-    return "Invalid content type", 403
+    else:
+        return "Invalid content type", 403
 
 @app.route("/yookassa/webhook", methods=["POST"])
 def yookassa_webhook():
@@ -175,20 +167,23 @@ def yookassa_webhook():
         description = payment_object["description"]
         metadata = payment_object.get("metadata", {})
         chat_id = metadata.get("chat_id")
+
         if chat_id:
             if "GPT-4o" in description:
                 user_models[int(chat_id)] = "gpt-4o"
             else:
                 user_models[int(chat_id)] = "gpt-3.5-turbo"
-            bot.send_message(chat_id, f"✅ Оплата прошла успешно!
-Активирован тариф: <b>{description}</b>", parse_mode="HTML")
+            bot.send_message(int(chat_id), f"✅ Оплата прошла успешно!
+"
+                                           f"Активирован тариф: <b>{description}</b>", parse_mode="HTML")
+        else:
+            print("⚠️ В webhook не передан chat_id.")
         return "", 200
     except Exception as e:
-        print("Ошибка в /yookassa/webhook:", e)
+        print("❌ Ошибка в /yookassa/webhook:", e)
         return "error", 400
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-
 
 
