@@ -7,8 +7,7 @@ from io import BytesIO
 from docx import Document
 from reportlab.pdfgen import canvas
 import openai
-from flask import Flask, request, jsonify
-
+from flask import Flask, request
 from yookassa import Configuration, Payment
 
 # === КОНФИГ ===
@@ -133,7 +132,7 @@ def handle_start(message):
     trial_start_times[chat_id] = time.time()
     save_used_trials(used_trials)
     bot.send_message(chat_id, f"Привет! Я {BOT_NAME} — твой ассистент. Чем могу помочь? 😉", reply_markup=main_menu(message.chat.id))
-    user_modes[message.chat.id] = "копирайтер"
+    user_modes[int(message.chat.id)] = "копирайтер"
     user_histories[message.chat.id] = []
     user_models[message.chat.id] = "gpt-3.5-turbo"
     user_token_limits[message.chat.id] = 0
@@ -221,7 +220,7 @@ def handle_launch_neiro_max(message):
 def handle_style_selection(message):
     chat_id = str(message.chat.id)
     selected = message.text.lower()
-    user_modes[chat_id] = selected
+    user_modes[int(chat_id)] = selected
     bot.send_message(chat_id, f"✅ Стиль общения изменён на: <b>{selected.capitalize()}</b>", parse_mode="HTML")
 
 
@@ -236,7 +235,7 @@ def handle_prompt(message):
         bot.send_message(chat_id, "⛔ Пробный период завершён. Пожалуйста, выберите тариф в разделе 📄 Тарифы.")
         return
     prompt = message.text
-    mode = user_modes.get(int(chat_id), "копирайтер")
+    mode = user_modes.get(int(int(chat_id)), "копирайтер")
     history = load_history(chat_id)
     messages = [{"role": "system", "content": available_modes[mode]}] + history + [{"role": "user", "content": prompt}]
     model = user_models.get(int(chat_id), "gpt-3.5-turbo")
@@ -303,8 +302,7 @@ def yookassa_webhook():
                 user_models[chat_id] = "gpt-3.5-turbo"
             elif "GPT-4" in description:
                 user_models[chat_id] = "gpt-4o"
-            clean_desc = description.split("/")[0].strip()
-            bot.send_message(chat_id, f"✅ Оплата прошла успешно!\nАктивирован тариф: <b>{clean_desc}</b>", parse_mode="HTML")
+            bot.send_message(chat_id, f"✅ Оплата прошла успешно!\nАктивирован тариф: <b>{description}</b>", parse_mode="HTML")
     return jsonify({"status": "ok"})
 
 
