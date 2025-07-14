@@ -201,6 +201,12 @@ def handle_main_menu(message):
     bot.send_message(message.chat.id, "Главное меню:", reply_markup=main_menu(message.chat.id))
 
 
+
+@bot.message_handler(func=lambda msg: msg.text == "🚀 Запустить Neiro Max")
+def handle_launch_neiro_max(message):
+    bot.send_message(message.chat.id, "Готов к работе! Чем могу помочь?", reply_markup=main_menu(message.chat.id))
+
+
 @bot.message_handler(func=lambda msg: True)
 def handle_prompt(message):
     chat_id = str(message.chat.id)
