@@ -136,7 +136,6 @@ def handle_start(message):
     user_histories[message.chat.id] = []
     user_models[message.chat.id] = "gpt-3.5-turbo"
     user_token_limits[message.chat.id] = 0
-
 @bot.message_handler(func=lambda msg: msg.text == "📄 Тарифы")
 def handle_tariffs(message):
     return_url = "https://t.me/NeiroMaxBot"
@@ -150,7 +149,7 @@ def handle_tariffs(message):
         ("GPT-4o: Max — 999₽", 999, "GPT-4o Max"),
     ]
     for label, price, desc in tariffs:
-        full_desc = f"{desc} / chat_id:{message.chat.id}"
+        full_desc = desc  # 🔧 УБРАЛ chat_id
         url = create_payment(price, full_desc, return_url)
         if url:
             buttons.append(types.InlineKeyboardButton(f"💳 {label}", url=url))
