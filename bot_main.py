@@ -46,8 +46,6 @@ def extract_chat_id_from_description(description):
     match = re.search(r'chat_id[:\s]*(\d+)', description)
     return int(match.group(1)) if match else None
 
-
-
 def create_payment(amount_rub, description, return_url):
     try:
         payment = Payment.create({
@@ -136,8 +134,7 @@ def handle_start(message):
     user_histories[message.chat.id] = []
     user_models[message.chat.id] = "gpt-3.5-turbo"
     user_token_limits[message.chat.id] = 0
-
-@bot.message_handler(func=lambda msg: msg.text == "📄 Тарифы")
+    @bot.message_handler(func=lambda msg: msg.text == "📄 Тарифы")
 def handle_tariffs(message):
     return_url = "https://t.me/NeiroMaxBot"
     buttons = []
@@ -172,13 +169,10 @@ def handle_reset_trial(message):
     save_used_trials(used_trials)
     bot.send_message(message.chat.id, "✅ Пробный доступ сброшен.")
 
+
 @bot.message_handler(func=lambda msg: msg.text == "💡 Сменить стиль")
 def handle_change_style(message):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    for mode in available_modes:
-        markup.add(mode.capitalize())
-    markup.add("📋 Главное меню")
-    bot.send_message(message.chat.id, "Выбери стиль общения:", reply_markup=markup)
+    bot.send_message(message.chat.id, "Выбери стиль общения:", reply_markup=style_keyboard())
 
 
 @bot.message_handler(func=lambda msg: msg.text == "📘 Правила")
@@ -203,17 +197,14 @@ def handle_bot_name(message):
     bot.send_message(message.chat.id, f"Я — {BOT_NAME}, твой персональный AI-ассистент 😉")
 
 
-
 @bot.message_handler(func=lambda msg: msg.text == "📋 Главное меню")
 def handle_main_menu(message):
     bot.send_message(message.chat.id, "Главное меню:", reply_markup=main_menu(message.chat.id))
 
 
-
 @bot.message_handler(func=lambda msg: msg.text == "🚀 Запустить Neiro Max")
 def handle_launch_neiro_max(message):
     bot.send_message(message.chat.id, "Готов к работе! Чем могу помочь?", reply_markup=main_menu(message.chat.id))
-
 
 
 @bot.message_handler(func=lambda msg: msg.text.lower() in [m.lower() for m in available_modes])
@@ -235,21 +226,21 @@ def handle_prompt(message):
         bot.send_message(chat_id, "⛔ Пробный период завершён. Пожалуйста, выберите тариф в разделе 📄 Тарифы.")
         return
     prompt = message.text
-    mode = user_modes.get(int(int(chat_id)), "копирайтер")
+    mode = user_modes.get(int(chat_id), "копирайтер")
     history = load_history(chat_id)
     messages = [{"role": "system", "content": available_modes[mode]}] + history + [{"role": "user", "content": prompt}]
     model = user_models.get(int(chat_id), "gpt-3.5-turbo")
     try:
-    # 🔒 Фильтрация по стилю
-    forbidden = {
-        "копирайтер": ["психолог", "депресс", "поддерж", "тревож"],
-        "деловой": ["юмор", "шутк", "прикол"],
-        "гопник": ["академ", "научн", "профессор"],
-        "профессор": ["шутк", "гопник", "жиза"]
-    }
-    if any(word in prompt.lower() for word in forbidden.get(mode, [])):
-        bot.send_message(chat_id, f"⚠️ Сейчас выбран стиль: <b>{mode.capitalize()}</b>. Запрос не соответствует текущему стилю. Сначала измени стиль.", parse_mode="HTML")
-        return
+        # 🔒 Фильтрация по стилю
+        forbidden = {
+            "копирайтер": ["психолог", "депресс", "поддерж", "тревож"],
+            "деловой": ["юмор", "шутк", "прикол"],
+            "гопник": ["академ", "научн", "профессор"],
+            "профессор": ["шутк", "гопник", "жиза"]
+        }
+        if any(word in prompt.lower() for word in forbidden.get(mode, [])):
+            bot.send_message(chat_id, f"⚠️ Сейчас выбран стиль: <b>{mode.capitalize()}</b>. Запрос не соответствует текущему стилю. Сначала измени стиль.", parse_mode="HTML")
+            return
 
         response = openai.ChatCompletion.create(model=model, messages=messages)
         reply = response["choices"][0]["message"]["content"].strip()
@@ -261,62 +252,74 @@ def handle_prompt(message):
     history.append({"role": "assistant", "content": reply})
     save_history(chat_id, history)
     bot.send_message(chat_id, reply, reply_markup=format_buttons())
+    @bot.callback_query_handler(func=lambda call: call.data in ["export_pdf", "export_word"])
+def handle_export_callback(call):
+    chat_id = str(call.message.chat.id)
+    history = load_history(chat_id)
+    if not history:
+        bot.send_message(chat_id, "История пуста.")
+        return
 
-@bot.callback_query_handler(func=lambda call: call.data in ["save_pdf", "save_word"])
-def handle_file_format(call):
-    chat_id = call.message.chat.id
-    history = load_history(str(chat_id))
-    text = "\n".join(m["content"] for m in history if m["role"] != "system")
-    if call.data == "save_pdf":
-        pdf_bytes = BytesIO()
-        pdf = canvas.Canvas(pdf_bytes)
-        y = 800
-        for line in text.split("\n"):
-            pdf.drawString(40, y, line)
-            y -= 15
-        pdf.save()
-        pdf_bytes.seek(0)
-        bot.send_document(chat_id, ("neiro_max_output.pdf", pdf_bytes))
+    if call.data == "export_pdf":
+        filename = f"history_{chat_id}.pdf"
+        path = os.path.join("memory", filename)
+        c = canvas.Canvas(path)
+        text = c.beginText(40, 800)
+        for msg in history:
+            role = "Я" if msg["role"] == "assistant" else "Вы"
+            text.textLine(f"{role}: {msg['content']}")
+        c.drawText(text)
+        c.save()
     else:
+        filename = f"history_{chat_id}.docx"
+        path = os.path.join("memory", filename)
         doc = Document()
-        doc.add_paragraph(text)
-        word_bytes = BytesIO()
-        doc.save(word_bytes)
-        word_bytes.seek(0)
-        bot.send_document(chat_id, ("neiro_max_output.docx", word_bytes))
+        for msg in history:
+            role = "Я" if msg["role"] == "assistant" else "Вы"
+            doc.add_paragraph(f"{role}: {msg['content']}")
+        doc.save(path)
 
-print("🤖 Neiro Max запущен.")
+    with open(path, "rb") as f:
+        doc_bytes = BytesIO(f.read())
+    doc_bytes.name = filename
+    bot.send_document(chat_id, doc_bytes)
+
+
+# === FLASK + WEBHOOK ===
+from flask import Flask, request, jsonify
+
 app = Flask(__name__)
 
-@app.route("/webhook", methods=["POST"])
-def webhook():
+@app.route(f"/webhook", methods=["POST"])
+def telegram_webhook():
     if request.headers.get("content-type") == "application/json":
         json_string = request.get_data().decode("utf-8")
         update = types.Update.de_json(json_string)
         bot.process_new_updates([update])
-        return "!", 200
+        return jsonify({"status": "ok"})
     else:
-        return "Invalid content type", 403
+        return jsonify({"error": "Invalid content-type"}), 403
 
 
 @app.route("/yookassa/webhook", methods=["POST"])
 def yookassa_webhook():
     data = request.json
-    if data.get('event') == 'payment.succeeded':
-        obj = data['object']
-        description = obj.get("description", "")
-        chat_id = extract_chat_id_from_description(description)
-        if chat_id:
-            if chat_id in user_models:
-                return jsonify({"status": "already activated"})
-            if "GPT-3.5" in description:
-                user_models[chat_id] = "gpt-3.5-turbo"
-            elif "GPT-4" in description:
-                user_models[chat_id] = "gpt-4o"
-            clean_desc = description.split("/")[0].strip()
-            bot.send_message(chat_id, f"✅ Оплата прошла успешно!\nАктивирован тариф: <b>{clean_desc}</b>", parse_mode="HTML")
+    description = data.get("object", {}).get("description", "")
+    if not description or "chat_id:" not in description:
+        return jsonify({"error": "invalid payload"}), 400
+
+    chat_id = int(description.split("chat_id:")[-1])
+    if chat_id in user_models:
+        return jsonify({"status": "already activated"})
+
+    if "GPT-4o" in description:
+        user_models[chat_id] = "gpt-4o"
+    else:
+        user_models[chat_id] = "gpt-3.5-turbo"
+
+    bot.send_message(chat_id, f"✅ Оплата прошла успешно!\nМодель: {user_models[chat_id]}")
     return jsonify({"status": "ok"})
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run(host="0.0.0.0", port=8080)
