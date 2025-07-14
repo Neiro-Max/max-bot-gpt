@@ -259,9 +259,34 @@ def handle_file_format(call):
 
 print("🤖 Neiro Max запущен.")
 app = Flask(__name__)
+@app.route("/yookassa/webhook", methods=["POST"])
+def yookassa_webhook():
+    if request.headers.get("content-type") == "application/json":
+        data = request.get_json()
+        try:
+            if data.get("event") == "payment.succeeded":
+                metadata = data["object"]["metadata"]
+                description = data["object"]["description"]
+                chat_id = int(metadata["chat_id"])
 
-@app.route("/webhook", methods=["POST"])
-def webhook():
+                # Смена модели
+                if "GPT-4o" in description:
+                    user_models[chat_id] = "gpt-4o"
+                else:
+                    user_models[chat_id] = "gpt-3.5-turbo"
+
+                # Сброс пробника
+                used_trials.pop(str(chat_id), None)
+                trial_start_times.pop(str(chat_id), None)
+                user_token_limits[chat_id] = 0
+
+                # Уведомление пользователя
+                bot.send_message(chat_id, f"✅ Тариф активирован: {description}\nПробный режим отключён.")
+        except Exception as e:
+            print("❌ Ошибка обработки webhook:", e)
+        return "OK", 200
+    else:
+        return "Invalid content type", 403
     if request.headers.get("content-type") == "application/json":
         json_string = request.get_data().decode("utf-8")
         update = types.Update.de_json(json_string)
