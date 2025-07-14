@@ -216,36 +216,16 @@ def handle_launch_neiro_max(message):
 
 
 
-
+@bot.message_handler(func=lambda msg: msg.text.lower() in [m.lower() for m in available_modes])
+def handle_style_selection(message):
+    chat_id = str(message.chat.id)
+    selected = message.text.lower()
+    user_modes[chat_id] = selected
+    bot.send_message(chat_id, f"✅ Стиль общения изменён на: <b>{selected.capitalize()}</b>", parse_mode="HTML")
 
 
 @bot.message_handler(func=lambda msg: True)
 def handle_prompt(message):
-    chat_id = str(message.chat.id)
-    text = message.text.lower()
-    if text in available_modes:
-        user_modes[chat_id] = text
-        bot.send_message(message.chat.id, f"✅ Стиль общения изменён на: <b>{text.capitalize()}</b>", parse_mode="HTML")
-        intro = ""
-        if text == "гопник":
-            intro = "Ну чё, брат, базарим по делу?"
-        elif text == "философ":
-            intro = "Истина рождается в беседе. О чём поговорим?"
-        elif text == "юморист":
-            intro = "Ща будет смешно! 😄 Давай тему!"
-        elif text == "копирайтер":
-            intro = "Готов писать как профи. Что продвигаем?"
-        elif text == "деловой":
-            intro = "Переходим к сути. Ваш запрос?"
-        elif text == "психолог":
-            intro = "Я здесь, чтобы выслушать. Расскажи, что у тебя на душе."
-        elif text == "профессор":
-            intro = "Готов разложить по полочкам. Вопрос?"
-        elif text == "истории":
-            intro = "О, ты выбрал рассказчика. Готовься к истории."
-        if intro:
-            bot.send_message(message.chat.id, intro)
-        return
     chat_id = str(message.chat.id)
     if chat_id not in trial_start_times:
         trial_start_times[chat_id] = time.time()
@@ -257,8 +237,7 @@ def handle_prompt(message):
     prompt = message.text
     mode = user_modes.get(int(chat_id), "копирайтер")
     history = load_history(chat_id)
-    system_prompt = available_modes.get(mode, "Ты — ассистент.")
-    messages = [{"role": "system", "content": system_prompt}] + history[-MAX_HISTORY:] + [{"role": "user", "content": prompt}]
+    messages = [{"role": "system", "content": available_modes[mode]}] + history + [{"role": "user", "content": prompt}]
     model = user_models.get(int(chat_id), "gpt-3.5-turbo")
     try:
         response = openai.ChatCompletion.create(model=model, messages=messages)
@@ -317,16 +296,12 @@ def yookassa_webhook():
         description = obj.get("description", "")
         chat_id = extract_chat_id_from_description(description)
         if chat_id:
-            chat_id_str = str(chat_id)
-            if chat_id_str in used_trials and "tariff" in used_trials[chat_id_str]:
+            if chat_id in user_models:
                 return jsonify({"status": "already activated"})
             if "GPT-3.5" in description:
                 user_models[chat_id] = "gpt-3.5-turbo"
             elif "GPT-4" in description:
                 user_models[chat_id] = "gpt-4o"
-            used_trials[chat_id_str] = used_trials.get(chat_id_str, {})
-            used_trials[chat_id_str]["tariff"] = description
-            save_used_trials(used_trials)
             bot.send_message(chat_id, f"✅ Оплата прошла успешно!\nАктивирован тариф: <b>{description}</b>", parse_mode="HTML")
     return jsonify({"status": "ok"})
 
