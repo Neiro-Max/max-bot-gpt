@@ -50,17 +50,7 @@ def extract_chat_id_from_description(description):
 
 def create_payment(amount_rub, description, return_url):
     try:
-    forbidden = {
-        "копирайтер": ["психолог", "депресс", "поддерж", "тревож"],
-        "деловой": ["юмор", "шутк", "прикол"],
-        "гопник": ["академ", "научн", "профессор"],
-        "профессор": ["шутк", "гопник", "жиза"]
-    }
-    if any(word in prompt.lower() for word in forbidden.get(mode, [])):
-        bot.send_message(chat_id, f"⚠️ Сейчас выбран стиль: <b>{mode.capitalize()}</b>. Запрос не соответствует текущему стилю. Сначала измени стиль.", parse_mode="HTML")
-        return
-
-            payment = Payment.create({
+        payment = Payment.create({
             "amount": {"value": f"{amount_rub}.00", "currency": "RUB"},
             "confirmation": {
                 "type": "redirect",
@@ -250,7 +240,7 @@ def handle_prompt(message):
     messages = [{"role": "system", "content": available_modes[mode]}] + history + [{"role": "user", "content": prompt}]
     model = user_models.get(int(chat_id), "gpt-3.5-turbo")
     try:
-        (model=model, messages=messages)
+        response = openai.ChatCompletion.create(model=model, messages=messages)
         reply = response["choices"][0]["message"]["content"].strip()
     except Exception as e:
         bot.send_message(chat_id, f"Ошибка: {e}")
