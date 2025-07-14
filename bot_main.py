@@ -216,3 +216,36 @@ def webhook():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
+@bot.message_handler(func=lambda msg: msg.text == "♻️ Сброс пробника")
+def handle_reset_trial(message):
+    if not is_admin(message.chat.id):
+        bot.send_message(message.chat.id, "⛔ Эта функция доступна только администратору.")
+        return
+    chat_id = str(message.chat.id)
+    if chat_id in used_trials:
+        del used_trials[chat_id]
+    trial_start_times.pop(chat_id, None)
+    save_used_trials(used_trials)
+    bot.send_message(message.chat.id, "✅ Пробный доступ сброшен.")
+
+@bot.message_handler(func=lambda msg: msg.text == "💡 Сменить стиль")
+def handle_change_style(message):
+    bot.send_message(message.chat.id, "Выбери стиль общения:", reply_markup=style_keyboard())
+
+@bot.message_handler(func=lambda msg: msg.text == "📘 Правила")
+def handle_rules(message):
+    rules_text = (
+        "<b>Правила использования бота Neiro Max:</b>\n\n"
+        "1. Пробный доступ ограничен 24 часами или 10 000 токенов — что наступит раньше.\n"
+        "2. После окончания пробника необходимо выбрать тариф 📄\n"
+        "3. Оплата производится через ЮKassa.\n"
+        "4. Вопросы и предложения — в @ваш_админ.\n\n"
+        "<i>Используя бота, вы соглашаетесь с условиями оферты.</i>"
+    )
+    bot.send_message(message.chat.id, rules_text, parse_mode="HTML")
+
+@bot.message_handler(func=lambda msg: msg.text.lower() in ["как тебя зовут?", "как тебя зовут", "твоё имя", "ты кто?", "ты кто"])
+def handle_bot_name(message):
+    bot.send_message(message.chat.id, f"Я — {BOT_NAME}, твой персональный AI-ассистент 😉")
+
