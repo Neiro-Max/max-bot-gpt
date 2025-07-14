@@ -7,7 +7,7 @@ from io import BytesIO
 from docx import Document
 from reportlab.pdfgen import canvas
 import openai
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from yookassa import Configuration, Payment
 
 # === КОНФИГ ===
@@ -240,6 +240,17 @@ def handle_prompt(message):
     messages = [{"role": "system", "content": available_modes[mode]}] + history + [{"role": "user", "content": prompt}]
     model = user_models.get(int(chat_id), "gpt-3.5-turbo")
     try:
+    # 🔒 Фильтрация по стилю
+    forbidden = {
+        "копирайтер": ["психолог", "депресс", "поддерж", "тревож"],
+        "деловой": ["юмор", "шутк", "прикол"],
+        "гопник": ["академ", "научн", "профессор"],
+        "профессор": ["шутк", "гопник", "жиза"]
+    }
+    if any(word in prompt.lower() for word in forbidden.get(mode, [])):
+        bot.send_message(chat_id, f"⚠️ Сейчас выбран стиль: <b>{mode.capitalize()}</b>. Запрос не соответствует текущему стилю. Сначала измени стиль.", parse_mode="HTML")
+        return
+
         response = openai.ChatCompletion.create(model=model, messages=messages)
         reply = response["choices"][0]["message"]["content"].strip()
     except Exception as e:
@@ -302,7 +313,8 @@ def yookassa_webhook():
                 user_models[chat_id] = "gpt-3.5-turbo"
             elif "GPT-4" in description:
                 user_models[chat_id] = "gpt-4o"
-            bot.send_message(chat_id, f"✅ Оплата прошла успешно!\nАктивирован тариф: <b>{description}</b>", parse_mode="HTML")
+            clean_desc = description.split("/")[0].strip()
+            bot.send_message(chat_id, f"✅ Оплата прошла успешно!\nАктивирован тариф: <b>{clean_desc}</b>", parse_mode="HTML")
     return jsonify({"status": "ok"})
 
 
