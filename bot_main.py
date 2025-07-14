@@ -7,7 +7,8 @@ from io import BytesIO
 from docx import Document
 from reportlab.pdfgen import canvas
 import openai
-from flask import Flask, request
+from flask import Flask, request, jsonify
+
 from yookassa import Configuration, Payment
 
 # === КОНФИГ ===
