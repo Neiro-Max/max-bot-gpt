@@ -7,7 +7,7 @@ from io import BytesIO
 from docx import Document
 from reportlab.pdfgen import canvas
 import openai
-from flask import Flask, request, jsonify
+from flask import Flask, request
 from yookassa import Configuration, Payment
 
 # === КОНФИГ ===
@@ -46,9 +46,21 @@ def extract_chat_id_from_description(description):
     match = re.search(r'chat_id[:\s]*(\d+)', description)
     return int(match.group(1)) if match else None
 
+
+
 def create_payment(amount_rub, description, return_url):
     try:
-        payment = Payment.create({
+    forbidden = {
+        "копирайтер": ["психолог", "депресс", "поддерж", "тревож"],
+        "деловой": ["юмор", "шутк", "прикол"],
+        "гопник": ["академ", "научн", "профессор"],
+        "профессор": ["шутк", "гопник", "жиза"]
+    }
+    if any(word in prompt.lower() for word in forbidden.get(mode, [])):
+        bot.send_message(chat_id, f"⚠️ Сейчас выбран стиль: <b>{mode.capitalize()}</b>. Запрос не соответствует текущему стилю. Сначала измени стиль.", parse_mode="HTML")
+        return
+
+            payment = Payment.create({
             "amount": {"value": f"{amount_rub}.00", "currency": "RUB"},
             "confirmation": {
                 "type": "redirect",
@@ -96,17 +108,17 @@ def main_menu(chat_id=None):
         markup.add("♻️ Сброс пробника")
     return markup
 
-def format_buttons():
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("📄 PDF", callback_data="save_pdf"))
-    markup.add(types.InlineKeyboardButton("📝 Word", callback_data="save_word"))
-    return markup
-
 def style_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     for mode in available_modes:
         markup.add(mode.capitalize())
     markup.add("📋 Главное меню")
+    return markup
+
+def format_buttons():
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("📄 PDF", callback_data="save_pdf"))
+    markup.add(types.InlineKeyboardButton("📝 Word", callback_data="save_word"))
     return markup
 
 used_trials = load_used_trials()
@@ -130,7 +142,7 @@ def handle_start(message):
     trial_start_times[chat_id] = time.time()
     save_used_trials(used_trials)
     bot.send_message(chat_id, f"Привет! Я {BOT_NAME} — твой ассистент. Чем могу помочь? 😉", reply_markup=main_menu(message.chat.id))
-    user_modes[int(message.chat.id)] = "копирайтер"
+    user_modes[message.chat.id] = "копирайтер"
     user_histories[message.chat.id] = []
     user_models[message.chat.id] = "gpt-3.5-turbo"
     user_token_limits[message.chat.id] = 0
@@ -157,6 +169,7 @@ def handle_tariffs(message):
         markup.add(btn)
     bot.send_message(message.chat.id, "📦 Выберите тариф:", reply_markup=markup)
 
+
 @bot.message_handler(func=lambda msg: msg.text == "♻️ Сброс пробника")
 def handle_reset_trial(message):
     if not is_admin(message.chat.id):
@@ -171,55 +184,55 @@ def handle_reset_trial(message):
 
 @bot.message_handler(func=lambda msg: msg.text == "💡 Сменить стиль")
 def handle_change_style(message):
-    bot.send_message(message.chat.id, "Выбери стиль общения:", reply_markup=style_keyboard())
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    for mode in available_modes:
+        markup.add(mode.capitalize())
+    markup.add("📋 Главное меню")
+    bot.send_message(message.chat.id, "Выбери стиль общения:", reply_markup=markup)
+
 
 @bot.message_handler(func=lambda msg: msg.text == "📘 Правила")
 def handle_rules(message):
     rules_text = (
-        "<b>Правила использования бота Neiro Max:</b>
-
-"
-        "✅ <b>Бесплатный пробный доступ:</b>
-"
-        "• Длительность — 24 часа или 10 000 токенов (что наступит раньше).
-
-"
-        "❌ <b>Запрещено:</b>
-"
-        "• Запросы, нарушающие законодательство РФ;
-"
-        "• Темы: насилие, терроризм, экстремизм, порнография, дискриминация, мошенничество.
-
-"
-        "⚠️ <b>Важно:</b>
-"
-        "• GPT-чат может допускать ошибки.
-"
-        "• Ответы не являются истиной в последней инстанции.
-
-"
+        "<b>Правила использования бота Neiro Max:</b>\n\n"
+        "✅ <b>Бесплатный пробный доступ:</b>\n"
+        "• Длительность — 24 часа или 10 000 токенов (что наступит раньше).\n\n"
+        "❌ <b>Запрещено:</b>\n"
+        "• Запросы, нарушающие законодательство РФ;\n"
+        "• Темы: насилие, терроризм, экстремизм, порнография, дискриминация, мошенничество.\n\n"
+        "⚠️ <b>Важно:</b>\n"
+        "• GPT-чат может допускать ошибки.\n"
+        "• Ответы не являются истиной в последней инстанции.\n\n"
         "Спасибо, что выбрали Neiro Max!"
     )
     bot.send_message(message.chat.id, rules_text, parse_mode="HTML")
+
 
 @bot.message_handler(func=lambda msg: msg.text.lower() in ["как тебя зовут", "как тебя зовут?", "твоё имя", "ты кто", "ты кто?"])
 def handle_bot_name(message):
     bot.send_message(message.chat.id, f"Я — {BOT_NAME}, твой персональный AI-ассистент 😉")
 
+
+
 @bot.message_handler(func=lambda msg: msg.text == "📋 Главное меню")
 def handle_main_menu(message):
     bot.send_message(message.chat.id, "Главное меню:", reply_markup=main_menu(message.chat.id))
+
+
 
 @bot.message_handler(func=lambda msg: msg.text == "🚀 Запустить Neiro Max")
 def handle_launch_neiro_max(message):
     bot.send_message(message.chat.id, "Готов к работе! Чем могу помочь?", reply_markup=main_menu(message.chat.id))
 
+
+
 @bot.message_handler(func=lambda msg: msg.text.lower() in [m.lower() for m in available_modes])
 def handle_style_selection(message):
     chat_id = str(message.chat.id)
     selected = message.text.lower()
-    user_modes[int(chat_id)] = selected
+    user_modes[chat_id] = selected
     bot.send_message(chat_id, f"✅ Стиль общения изменён на: <b>{selected.capitalize()}</b>", parse_mode="HTML")
+
 
 @bot.message_handler(func=lambda msg: True)
 def handle_prompt(message):
@@ -236,17 +249,8 @@ def handle_prompt(message):
     history = load_history(chat_id)
     messages = [{"role": "system", "content": available_modes[mode]}] + history + [{"role": "user", "content": prompt}]
     model = user_models.get(int(chat_id), "gpt-3.5-turbo")
-    forbidden = {
-        "копирайтер": ["психолог", "депресс", "поддерж", "тревож"],
-        "деловой": ["юмор", "шутк", "прикол"],
-        "гопник": ["академ", "научн", "профессор"],
-        "профессор": ["шутк", "гопник", "жиза"]
-    }
-    if any(word in prompt.lower() for word in forbidden.get(mode, [])):
-        bot.send_message(chat_id, f"⚠️ Сейчас выбран стиль: <b>{mode.capitalize()}</b>. Запрос не соответствует текущему стилю. Сначала измени стиль.", parse_mode="HTML")
-        return
     try:
-        response = openai.ChatCompletion.create(model=model, messages=messages)
+        (model=model, messages=messages)
         reply = response["choices"][0]["message"]["content"].strip()
     except Exception as e:
         bot.send_message(chat_id, f"Ошибка: {e}")
@@ -280,38 +284,37 @@ def handle_file_format(call):
         word_bytes.seek(0)
         bot.send_document(chat_id, ("neiro_max_output.docx", word_bytes))
 
-# === FLASK WEBHOOK ===
+print("🤖 Neiro Max запущен.")
 app = Flask(__name__)
 
 @app.route("/webhook", methods=["POST"])
-def telegram_webhook():
+def webhook():
     if request.headers.get("content-type") == "application/json":
         json_string = request.get_data().decode("utf-8")
         update = types.Update.de_json(json_string)
         bot.process_new_updates([update])
-        return jsonify({"status": "ok"}), 200
-    return jsonify({"error": "invalid content-type"}), 403
+        return "!", 200
+    else:
+        return "Invalid content type", 403
+
 
 @app.route("/yookassa/webhook", methods=["POST"])
 def yookassa_webhook():
     data = request.json
-    if data.get('event') != 'payment.succeeded':
-        return jsonify({"status": "ignored"})
-    obj = data.get('object', {})
-    description = obj.get("description", "")
-    chat_id = extract_chat_id_from_description(description)
-    if not chat_id:
-        return jsonify({"error": "chat_id not found in description"}), 400
-    if chat_id in user_models:
-        return jsonify({"status": "already activated"})
-    if "GPT-4" in description:
-        user_models[chat_id] = "gpt-4o"
-    else:
-        user_models[chat_id] = "gpt-3.5-turbo"
-    clean_desc = description.split("/")[0].strip()
-    bot.send_message(chat_id, f"✅ Оплата прошла успешно!\nАктивирован тариф: <b>{clean_desc}</b>", parse_mode="HTML")
+    if data.get('event') == 'payment.succeeded':
+        obj = data['object']
+        description = obj.get("description", "")
+        chat_id = extract_chat_id_from_description(description)
+        if chat_id:
+            if chat_id in user_models:
+                return jsonify({"status": "already activated"})
+            if "GPT-3.5" in description:
+                user_models[chat_id] = "gpt-3.5-turbo"
+            elif "GPT-4" in description:
+                user_models[chat_id] = "gpt-4o"
+            bot.send_message(chat_id, f"✅ Оплата прошла успешно!\nАктивирован тариф: <b>{description}</b>", parse_mode="HTML")
     return jsonify({"status": "ok"})
 
+
 if __name__ == "__main__":
-    print("🤖 Neiro Max запущен.")
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
