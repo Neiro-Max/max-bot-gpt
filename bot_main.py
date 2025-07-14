@@ -41,7 +41,8 @@ available_modes = {
     "истории": "Ты — рассказчик. Превращай каждый ответ в интересную историю."
 }
 
-def create_payment(amount_rub, description, return_url):
+
+def create_payment(amount_rub, description, return_url, chat_id):
     try:
         payment = Payment.create({
             "amount": {"value": f"{amount_rub}.00", "currency": "RUB"},
@@ -50,7 +51,8 @@ def create_payment(amount_rub, description, return_url):
                 "return_url": return_url
             },
             "capture": True,
-            "description": description
+            "description": description,
+            "metadata": {"chat_id": str(chat_id)}
         })
         print("✅ Ссылка на оплату:", payment.confirmation.confirmation_url)
         return payment.confirmation.confirmation_url
@@ -59,6 +61,7 @@ def create_payment(amount_rub, description, return_url):
         import traceback
         traceback.print_exc()
         return None
+
 
 def load_used_trials():
     if os.path.exists(USED_TRIALS_FILE):
@@ -207,6 +210,22 @@ def handle_launch_neiro_max(message):
     bot.send_message(message.chat.id, "Готов к работе! Чем могу помочь?", reply_markup=main_menu(message.chat.id))
 
 
+
+@bot.message_handler(func=lambda msg: msg.text.lower() in [mode.lower() for mode in available_modes])
+def handle_style_selection(message):
+    selected = message.text.lower()
+    for key in available_modes:
+        if selected == key.lower():
+            user_modes[message.chat.id] = key
+            bot.send_message(
+                message.chat.id,
+                f"✅ Стиль выбран: {key}",
+                reply_markup=types.ReplyKeyboardRemove()
+            )
+            return
+    bot.send_message(message.chat.id, "❌ Неизвестный стиль.")
+
+
 @bot.message_handler(func=lambda msg: True)
 def handle_prompt(message):
     chat_id = str(message.chat.id)
@@ -260,15 +279,28 @@ def handle_file_format(call):
 print("🤖 Neiro Max запущен.")
 app = Flask(__name__)
 
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
     if request.headers.get("content-type") == "application/json":
-        json_string = request.get_data().decode("utf-8")
-        update = types.Update.de_json(json_string)
-        bot.process_new_updates([update])
-        return "!", 200
+        data = request.get_json()
+        try:
+            if data["event"] == "payment.succeeded":
+                metadata = data["object"]["metadata"]
+                description = data["object"]["description"]
+                chat_id = int(metadata["chat_id"])
+                if "GPT-4o" in description:
+                    user_models[chat_id] = "gpt-4o"
+                else:
+                    user_models[chat_id] = "gpt-3.5-turbo"
+                bot.send_message(chat_id, f"✅ Тариф активирован: {description}")
+        except Exception as e:
+            print("❌ Ошибка обработки webhook:", e)
+        return "OK", 200
     else:
         return "Invalid content type", 403
 
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
