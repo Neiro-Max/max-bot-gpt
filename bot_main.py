@@ -150,7 +150,8 @@ def handle_tariffs(message):
         ("GPT-4o: Max — 999₽", 999, "GPT-4o Max"),
     ]
     for label, price, desc in tariffs:
-        url = create_payment(price, desc, return_url)
+        full_desc = f"{desc} / chat_id:{message.chat.id}"
+        url = create_payment(price, full_desc, return_url)
         if url:
             buttons.append(types.InlineKeyboardButton(f"💳 {label}", url=url))
     markup = types.InlineKeyboardMarkup(row_width=1)
@@ -171,26 +172,13 @@ def handle_reset_trial(message):
     save_used_trials(used_trials)
     bot.send_message(message.chat.id, "✅ Пробный доступ сброшен.")
 
-
 @bot.message_handler(func=lambda msg: msg.text == "💡 Сменить стиль")
 def handle_change_style(message):
-    keyboard = types.InlineKeyboardMarkup(row_width=2)
-    buttons = [
-        types.InlineKeyboardButton("Копирайтер", callback_data="style_копирайтер"),
-        types.InlineKeyboardButton("Психолог", callback_data="style_психолог"),
-        types.InlineKeyboardButton("Гопник", callback_data="style_гопник"),
-        types.InlineKeyboardButton("Поэт", callback_data="style_поэт")
-    ]
-    keyboard.add(*buttons)
-    bot.send_message(message.chat.id, "Выбери стиль общения:", reply_markup=keyboard)
-
-@bot.callback_query_handler(func=lambda c: c.data.startswith("style_"))
-def set_style_callback(callback):
-    chat_id = callback.message.chat.id
-    selected = callback.data.split("_")[1]
-    user_modes[str(chat_id)] = selected
-    bot.answer_callback_query(callback.id, text="Стиль установлен!")
-    bot.send_message(chat_id, f"✅ Стиль общения изменён на: <b>{selected}</b>", parse_mode="HTML")
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    for mode in available_modes:
+        markup.add(mode.capitalize())
+    markup.add("📋 Главное меню")
+    bot.send_message(message.chat.id, "Выбери стиль общения:", reply_markup=markup)
 
 
 @bot.message_handler(func=lambda msg: msg.text == "📘 Правила")
@@ -309,3 +297,4 @@ def yookassa_webhook():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
