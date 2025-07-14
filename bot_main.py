@@ -195,6 +195,12 @@ def handle_bot_name(message):
     bot.send_message(message.chat.id, f"Я — {BOT_NAME}, твой персональный AI-ассистент 😉")
 
 
+
+@bot.message_handler(func=lambda msg: msg.text == "📋 Главное меню")
+def handle_main_menu(message):
+    bot.send_message(message.chat.id, "Главное меню:", reply_markup=main_menu(message.chat.id))
+
+
 @bot.message_handler(func=lambda msg: True)
 def handle_prompt(message):
     chat_id = str(message.chat.id)
