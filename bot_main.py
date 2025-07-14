@@ -41,6 +41,13 @@ available_modes = {
     "истории": "Ты — рассказчик. Превращай каждый ответ в интересную историю."
 }
 
+def extract_chat_id_from_description(description):
+    import re
+    match = re.search(r'chat_id[:\s]*(\d+)', description)
+    return int(match.group(1)) if match else None
+
+
+
 def create_payment(amount_rub, description, return_url):
     try:
         payment = Payment.create({
@@ -164,13 +171,26 @@ def handle_reset_trial(message):
     save_used_trials(used_trials)
     bot.send_message(message.chat.id, "✅ Пробный доступ сброшен.")
 
+
 @bot.message_handler(func=lambda msg: msg.text == "💡 Сменить стиль")
 def handle_change_style(message):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    for mode in available_modes:
-        markup.add(mode.capitalize())
-    markup.add("📋 Главное меню")
-    bot.send_message(message.chat.id, "Выбери стиль общения:", reply_markup=markup)
+    keyboard = types.InlineKeyboardMarkup(row_width=2)
+    buttons = [
+        types.InlineKeyboardButton("Копирайтер", callback_data="style_копирайтер"),
+        types.InlineKeyboardButton("Психолог", callback_data="style_психолог"),
+        types.InlineKeyboardButton("Гопник", callback_data="style_гопник"),
+        types.InlineKeyboardButton("Поэт", callback_data="style_поэт")
+    ]
+    keyboard.add(*buttons)
+    bot.send_message(message.chat.id, "Выбери стиль общения:", reply_markup=keyboard)
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("style_"))
+def set_style_callback(callback):
+    chat_id = callback.message.chat.id
+    selected = callback.data.split("_")[1]
+    user_modes[str(chat_id)] = selected
+    bot.answer_callback_query(callback.id, text="Стиль установлен!")
+    bot.send_message(chat_id, f"✅ Стиль общения изменён на: <b>{selected}</b>", parse_mode="HTML")
 
 
 @bot.message_handler(func=lambda msg: msg.text == "📘 Правила")
@@ -269,34 +289,23 @@ def webhook():
         return "!", 200
     else:
         return "Invalid content type", 403
+
+
 @app.route("/yookassa/webhook", methods=["POST"])
 def yookassa_webhook():
-    body = request.get_data().decode("utf-8")
-    try:
-        notification = json.loads(body)
-        payment_object = notification.get("object", {})
-        description = payment_object.get("description", "")
-        metadata = payment_object.get("metadata", {})
-        chat_id = metadata.get("chat_id")
+    data = request.json
+    if data.get('event') == 'payment.succeeded':
+        obj = data['object']
+        description = obj.get("description", "")
+        chat_id = extract_chat_id_from_description(description)
+        if chat_id:
+            if "GPT-3.5" in description:
+                user_models[chat_id] = "gpt-3.5-turbo"
+            elif "GPT-4" in description:
+                user_models[chat_id] = "gpt-4o"
+            bot.send_message(chat_id, f"✅ Оплата прошла успешно!\nАктивирован тариф: <b>{description}</b>", parse_mode="HTML")
+    return jsonify({"status": "ok"})
 
-       if chat_id:
-    if "GPT-4o" in description:
-        user_models[int(chat_id)] = "gpt-4o"
-    else:
-        user_models[int(chat_id)] = "gpt-3.5-turbo"
-    
-    bot.send_message(
-        int(chat_id),
-        f"✅ Оплата прошла успешно!\n"
-        f"Активирован тариф: <b>{description}</b>",
-        parse_mode="HTML"
-    )
-        else:
-            print("⚠️ В webhook не передан chat_id.")
-        return "", 200
-    except Exception as e:
-        print("❌ Ошибка в /yookassa/webhook:", e)
-        return "error", 400
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
