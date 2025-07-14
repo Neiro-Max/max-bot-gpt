@@ -327,8 +327,7 @@ def yookassa_webhook():
             used_trials[chat_id_str] = used_trials.get(chat_id_str, {})
             used_trials[chat_id_str]["tariff"] = description
             save_used_trials(used_trials)
-            bot.send_message(chat_id, f"✅ Оплата прошла успешно!
-Активирован тариф: <b>{description}</b>", parse_mode="HTML")
+            bot.send_message(chat_id, f"✅ Оплата прошла успешно!\nАктивирован тариф: <b>{description}</b>", parse_mode="HTML")
     return jsonify({"status": "ok"})
 
 
