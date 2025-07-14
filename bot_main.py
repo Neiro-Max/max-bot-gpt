@@ -259,6 +259,7 @@ def handle_file_format(call):
 
 print("🤖 Neiro Max запущен.")
 app = Flask(__name__)
+
 @app.route("/yookassa/webhook", methods=["POST"])
 def yookassa_webhook():
     if request.headers.get("content-type") == "application/json":
@@ -269,24 +270,27 @@ def yookassa_webhook():
                 description = data["object"]["description"]
                 chat_id = int(metadata["chat_id"])
 
-                # Смена модели
+                # Смена модели GPT
                 if "GPT-4o" in description:
                     user_models[chat_id] = "gpt-4o"
                 else:
                     user_models[chat_id] = "gpt-3.5-turbo"
 
-                # Сброс пробника
+                # Сброс пробного режима
                 used_trials.pop(str(chat_id), None)
                 trial_start_times.pop(str(chat_id), None)
                 user_token_limits[chat_id] = 0
 
                 # Уведомление пользователя
-                bot.send_message(chat_id, f"✅ Тариф активирован: {description}\nПробный режим отключён.")
+                bot.send_message(chat_id, f"✅ Тариф активирован: {description}\nМодель: {user_models[chat_id]}\nПробный режим отключён.")
         except Exception as e:
-            print("❌ Ошибка обработки webhook:", e)
+            print("Ошибка в webhook:", e)
         return "OK", 200
-    else:
-        return "Invalid content type", 403
+    return "Invalid content type", 403
+
+
+@app.route("/webhook", methods=["POST"])
+def webhook():
     if request.headers.get("content-type") == "application/json":
         json_string = request.get_data().decode("utf-8")
         update = types.Update.de_json(json_string)
@@ -297,5 +301,6 @@ def yookassa_webhook():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
 
 
