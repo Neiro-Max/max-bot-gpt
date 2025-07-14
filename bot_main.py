@@ -172,15 +172,6 @@ def handle_reset_trial(message):
     save_used_trials(used_trials)
     bot.send_message(message.chat.id, "✅ Пробный доступ сброшен.")
 
-@bot.message_handler(func=lambda msg: msg.text == "💡 Сменить стиль")
-def handle_change_style(message):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    for mode in available_modes:
-        markup.add(mode.capitalize())
-    markup.add("📋 Главное меню")
-    bot.send_message(message.chat.id, "Выбери стиль общения:", reply_markup=markup)
-
-
 @bot.message_handler(func=lambda msg: msg.text == "📘 Правила")
 def handle_rules(message):
     rules_text = (
@@ -308,3 +299,17 @@ def yookassa_webhook():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
+@bot.message_handler(func=lambda msg: msg.text == "💡 Сменить стиль")
+def handle_change_style(message):
+    keyboard = types.InlineKeyboardMarkup()
+    for mode in available_modes:
+        keyboard.add(types.InlineKeyboardButton(text=mode.capitalize(), callback_data=f"set_style:{mode}"))
+    bot.send_message(message.chat.id, "Выбери стиль общения:", reply_markup=keyboard)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("set_style:"))
+def set_user_style(call):
+    selected = call.data.split("set_style:")[1]
+    user_modes[call.message.chat.id] = selected
+    bot.answer_callback_query(call.id, text="Стиль изменён.")
+    bot.send_message(call.message.chat.id, f"✅ Стиль общения установлен: {selected}")
