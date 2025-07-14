@@ -224,6 +224,37 @@ def handle_style_selection(message):
     bot.send_message(chat_id, f"✅ Стиль общения изменён на: <b>{selected.capitalize()}</b>", parse_mode="HTML")
 
 
+
+@bot.message_handler(func=lambda msg: msg.text.lower() in [m.lower() for m in available_modes])
+def handle_style_selection(message):
+    chat_id = str(message.chat.id)
+    selected = message.text.lower()
+    user_modes[chat_id] = selected
+    bot.send_message(chat_id, f"✅ Стиль общения изменён на: <b>{selected.capitalize()}</b>", parse_mode="HTML")
+
+    # Автоматический отклик в стиле
+    intro = ""
+    if selected == "гопник":
+        intro = "Ну чё, брат, базарим по делу?"
+    elif selected == "философ":
+        intro = "Истина рождается в беседе. О чём поговорим?"
+    elif selected == "юморист":
+        intro = "Ща будет смешно! 😄 Давай тему!"
+    elif selected == "копирайтер":
+        intro = "Готов писать как профи. Что продвигаем?"
+    elif selected == "деловой":
+        intro = "Переходим к сути. Ваш запрос?"
+    elif selected == "психолог":
+        intro = "Я здесь, чтобы выслушать. Расскажи, что у тебя на душе."
+    elif selected == "профессор":
+        intro = "Готов разложить по полочкам. Вопрос?"
+    elif selected == "истории":
+        intro = "О, ты выбрал рассказчика. Готовься к истории."
+
+    if intro:
+        bot.send_message(chat_id, intro)
+
+
 @bot.message_handler(func=lambda msg: True)
 def handle_prompt(message):
     chat_id = str(message.chat.id)
@@ -296,13 +327,18 @@ def yookassa_webhook():
         description = obj.get("description", "")
         chat_id = extract_chat_id_from_description(description)
         if chat_id:
-            if chat_id in user_models:
+            chat_id_str = str(chat_id)
+            if chat_id_str in used_trials and "tariff" in used_trials[chat_id_str]:
                 return jsonify({"status": "already activated"})
             if "GPT-3.5" in description:
                 user_models[chat_id] = "gpt-3.5-turbo"
             elif "GPT-4" in description:
                 user_models[chat_id] = "gpt-4o"
-            bot.send_message(chat_id, f"✅ Оплата прошла успешно!\nАктивирован тариф: <b>{description}</b>", parse_mode="HTML")
+            used_trials[chat_id_str] = used_trials.get(chat_id_str, {})
+            used_trials[chat_id_str]["tariff"] = description
+            save_used_trials(used_trials)
+            bot.send_message(chat_id, f"✅ Оплата прошла успешно!
+Активирован тариф: <b>{description}</b>", parse_mode="HTML")
     return jsonify({"status": "ok"})
 
 
