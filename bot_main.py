@@ -47,8 +47,7 @@ def extract_chat_id_from_description(description):
     return int(match.group(1)) if match else None
 
 
-
-def create_payment(amount_rub, description, return_url):
+def create_payment(amount_rub, description, return_url, chat_id):
     try:
         payment = Payment.create({
             "amount": {"value": f"{amount_rub}.00", "currency": "RUB"},
@@ -57,9 +56,13 @@ def create_payment(amount_rub, description, return_url):
                 "return_url": return_url
             },
             "capture": True,
-            "description": description
+            "description": description,  # Только название тарифа
+            "metadata": {
+                "chat_id": str(chat_id)
+            }
         })
         print("✅ Ссылка на оплату:", payment.confirmation.confirmation_url)
+        return payment.confirmation.confirmation_url
         return payment.confirmation.confirmation_url
     except Exception as e:
         print("❌ Ошибка при создании платежа:")
@@ -150,7 +153,7 @@ def handle_tariffs(message):
     ]
     for label, price, desc in tariffs:
         full_desc = desc  # 🔧 УБРАЛ chat_id
-        url = create_payment(price, full_desc, return_url)
+        url = create_payment(price, full_desc, return_url, message.chat.id)
         if url:
             buttons.append(types.InlineKeyboardButton(f"💳 {label}", url=url))
     markup = types.InlineKeyboardMarkup(row_width=1)
@@ -238,7 +241,7 @@ def handle_prompt(message):
         return
 
     prompt = message.text.strip()
-    mode = user_modes.get(int(chat_id), "копирайтер")
+    mode = user_modes.get(chat_id, "копирайтер")
     model = user_models.get(int(chat_id), "gpt-3.5-turbo")
 
     # 🔒 Фильтрация по стилю
@@ -306,24 +309,31 @@ def webhook():
     else:
         return "Invalid content type", 403
 
-
 @app.route("/yookassa/webhook", methods=["POST"])
 def yookassa_webhook():
     data = request.json
     if data.get('event') == 'payment.succeeded':
         obj = data['object']
-        description = obj.get("description", "")
-        chat_id = extract_chat_id_from_description(description)
-        if chat_id:
-            if chat_id in user_models:
-                return jsonify({"status": "already activated"})
-            if "GPT-3.5" in description:
-                user_models[chat_id] = "gpt-3.5-turbo"
-            elif "GPT-4" in description:
-                user_models[chat_id] = "gpt-4o"
-            bot.send_message(chat_id, f"✅ Оплата прошла успешно!\nАктивирован тариф: <b>{description}</b>", parse_mode="HTML")
-    return jsonify({"status": "ok"})
+        description = obj.get("description", "")  # Например: "GPT-3.5 Lite"
+        metadata = obj.get("metadata", {})
+        chat_id = metadata.get("chat_id")
 
+        if not chat_id:
+            return jsonify({"status": "chat_id missing"})
+
+        # Выбор модели
+        if "GPT-3.5" in description:
+            model = "gpt-3.5-turbo"
+        elif "GPT-4" in description:
+            model = "gpt-4o"
+        else:
+            return jsonify({"status": "unknown model"})
+
+        user_models[chat_id] = model
+
+        bot.send_message(chat_id, f"✅ Оплата прошла успешно!\nАктивирован тариф: <b>{description}</b>", parse_mode="HTML")
+
+    return jsonify({"status": "ok"})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
