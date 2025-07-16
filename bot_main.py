@@ -234,19 +234,20 @@ def handle_style_selection(message):
 def handle_prompt(message):
     chat_id = str(message.chat.id)
 
+    # ✅ Гарантируем, что старт пробника установлен
     if chat_id not in trial_start_times:
         trial_start_times[chat_id] = time.time()
 
-    # Проверка окончания пробника
-    time_elapsed = time.time() - trial_start_times[chat_id]
+    # ✅ Проверка лимитов токенов и времени
     tokens_used = user_token_limits.get(chat_id, 0)
+    time_elapsed = time.time() - trial_start_times[chat_id]
     if time_elapsed > TRIAL_DURATION_SECONDS or tokens_used >= TRIAL_TOKEN_LIMIT:
         bot.send_message(chat_id, "⛔ Пробный период завершён. Пожалуйста, выберите тариф в разделе 📄 Тарифы.")
         return
 
     prompt = message.text.strip()
     mode = user_modes.get(chat_id, "копирайтер")
-    model = user_models.get(int(chat_id), "gpt-3.5-turbo")
+    model = user_models.get(chat_id, "gpt-3.5-turbo")
 
     # 🔒 Фильтрация по стилю
     forbidden = {
@@ -270,7 +271,7 @@ def handle_prompt(message):
         bot.send_message(chat_id, f"Ошибка: {e}")
         return
 
-    # Сохраняем токены и историю
+    # ✅ Сохраняем токены и историю
     user_token_limits[chat_id] = tokens_used + len(prompt)
     history.append({"role": "user", "content": prompt})
     history.append({"role": "assistant", "content": reply})
