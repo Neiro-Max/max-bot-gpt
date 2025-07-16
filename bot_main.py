@@ -314,14 +314,14 @@ def yookassa_webhook():
     data = request.json
     if data.get('event') == 'payment.succeeded':
         obj = data['object']
-        description = obj.get("description", "")  # Например: "GPT-3.5 Lite"
+        description = obj.get("description", "")
         metadata = obj.get("metadata", {})
         chat_id = metadata.get("chat_id")
 
         if not chat_id:
             return jsonify({"status": "chat_id missing"})
 
-        # Выбор модели
+        # Определяем модель
         if "GPT-3.5" in description:
             model = "gpt-3.5-turbo"
         elif "GPT-4" in description:
@@ -329,8 +329,12 @@ def yookassa_webhook():
         else:
             return jsonify({"status": "unknown model"})
 
-        user_models[chat_id] = model
+        # 🔐 Защита от повторной отправки
+        if chat_id in user_models:
+            print(f"[Webhook] Модель уже активирована для chat_id={chat_id}")
+            return jsonify({"status": "already activated"})
 
+        user_models[chat_id] = model
         bot.send_message(chat_id, f"✅ Оплата прошла успешно!\nАктивирован тариф: <b>{description}</b>", parse_mode="HTML")
 
     return jsonify({"status": "ok"})
