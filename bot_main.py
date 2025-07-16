@@ -164,15 +164,19 @@ def handle_tariffs(message):
 
 @bot.message_handler(func=lambda msg: msg.text == "♻️ Сброс пробника")
 def handle_reset_trial(message):
-    if not is_admin(message.chat.id):
-        bot.send_message(message.chat.id, "⛔ Эта функция доступна только администратору.")
+    bot.send_message(message.chat.id, "Введи ID пользователя, которому сбросить пробный доступ (можно свой):")
+    bot.register_next_step_handler(message, reset_trial_by_id)
+
+def reset_trial_by_id(message):
+    target_id = message.text.strip()
+    if not target_id.isdigit():
+        bot.send_message(message.chat.id, "❌ Введи только цифры — это должен быть chat_id.")
         return
-    chat_id = str(message.chat.id)
-    if chat_id in used_trials:
-        del used_trials[chat_id]
-    trial_start_times.pop(chat_id, None)
+    if target_id in used_trials:
+        del used_trials[target_id]
+    trial_start_times.pop(target_id, None)
     save_used_trials(used_trials)
-    bot.send_message(message.chat.id, "✅ Пробный доступ сброшен.")
+    bot.send_message(message.chat.id, f"✅ Пробный доступ сброшен для chat_id {target_id}.")
 
 @bot.message_handler(func=lambda msg: msg.text == "💡 Сменить стиль")
 def handle_change_style(message):
