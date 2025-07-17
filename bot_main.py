@@ -132,6 +132,10 @@ used_trials = load_used_trials()
 try:
     with open(TRIAL_TIMES_FILE, "r", encoding="utf-8") as f:
         trial_start_times = json.load(f)
+        print("🎯 trial_start_times загружен:", trial_start_times)
+except:
+    trial_start_times = {}
+    print("⚠️ trial_start_times не найден или пустой. Создан пустой словарь.")
 except:
     pass
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
