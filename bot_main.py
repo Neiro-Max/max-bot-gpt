@@ -17,6 +17,7 @@ Configuration.account_id = YOOKASSA_SHOP_ID
 Configuration.secret_key = YOOKASSA_SECRET_KEY
 
 USED_TRIALS_FILE = "used_trials.json"
+TRIAL_TIMES_FILE = "trial_times.json"
 MEMORY_DIR = "memory"
 ADMIN_ID = 1034982624
 MAX_HISTORY = 20
@@ -69,12 +70,25 @@ def create_payment(amount_rub, description, return_url, chat_id):
         import traceback
         traceback.print_exc()
         return None
-
 def load_used_trials():
     if os.path.exists(USED_TRIALS_FILE):
         with open(USED_TRIALS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
+
+def save_trial_times(data):
+    with open(TRIAL_TIMES_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+def load_token_usage():
+    if os.path.exists("token_usage.json"):
+        with open("token_usage.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+def save_token_usage(data):
+    with open("token_usage.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
 
 def save_used_trials(data):
     with open(USED_TRIALS_FILE, "w", encoding="utf-8") as f:
@@ -132,7 +146,7 @@ def handle_start(message):
         bot.send_message(chat_id, "⛔ Вы уже использовали пробный доступ.")
         return
     used_trials[chat_id] = True
-    trial_start_times[chat_id] = time.time()
+    trial_start_times = load_trial_times()
     save_used_trials(used_trials)
     bot.send_message(chat_id, f"Привет! Я {BOT_NAME} — твой ассистент. Чем могу помочь? 😉", reply_markup=main_menu(message.chat.id))
     user_modes[message.chat.id] = "копирайтер"
