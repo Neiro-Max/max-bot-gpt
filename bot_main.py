@@ -264,30 +264,30 @@ def handle_prompt(message):
     tokens_used = user_token_limits.get(chat_id, 0)
     time_elapsed = time.time() - trial_start_times[chat_id]
  if time_elapsed > TRIAL_DURATION_SECONDS or tokens_used >= TRIAL_TOKEN_LIMIT:
-        # ⚠️ Уведомление о завершении пробника + кнопки с тарифами
-        return_url = "https://t.me/NeiroMaxBot"
-        buttons = []
-        tariffs = [
-            ("GPT-3.5: Lite — 199₽", 199, "GPT-3.5 Lite"),
-            ("GPT-3.5: Pro — 299₽", 299, "GPT-3.5 Pro"),
-            ("GPT-3.5: Max — 399₽", 399, "GPT-3.5 Max"),
-            ("GPT-4o: Lite — 299₽", 299, "GPT-4o Lite"),
-            ("GPT-4o: Pro — 499₽", 499, "GPT-4o Pro"),
-            ("GPT-4o: Max — 999₽", 999, "GPT-4o Max")
-        ]
-        for label, price, desc in tariffs:
-            url = create_payment(price, desc, return_url, chat_id)
-            if url:
-                buttons.append(types.InlineKeyboardButton(f"💳 {label}", url=url))
-        markup = types.InlineKeyboardMarkup(row_width=1)
-        for btn in buttons:
-            markup.add(btn)
-        bot.send_message(
-            chat_id,
-            "⛔ Пробный период завершён.\n\nВыберите тариф для продолжения работы:",
-            reply_markup=markup
-        )
-        return
+      # ⚠️ Уведомление о завершении пробника + кнопки с тарифами
+         return_url = "https://t.me/NeiroMaxBot"
+         buttons = []
+         tariffs = [
+             ("GPT-3.5: Lite — 199₽", 199, "GPT-3.5 Lite"),
+             ("GPT-3.5: Pro — 299₽", 299, "GPT-3.5 Pro"),
+             ("GPT-3.5: Max — 399₽", 399, "GPT-3.5 Max"),
+             ("GPT-4o: Lite — 299₽", 299, "GPT-4o Lite"),
+             ("GPT-4o: Pro — 499₽", 499, "GPT-4o Pro"),
+             ("GPT-4o: Max — 999₽", 999, "GPT-4o Max")
+         ]
+         for label, price, desc in tariffs:
+             url = create_payment(price, desc, return_url, chat_id)
+             if url:
+                 buttons.append(types.InlineKeyboardButton(f"💳 {label}", url=url))
+         markup = types.InlineKeyboardMarkup(row_width=1)
+         for btn in buttons:
+             markup.add(btn)
+         bot.send_message(
+             chat_id,
+             "⛔ Пробный период завершён.\n\nВыберите тариф для продолжения работы:",
+             reply_markup=markup
+         )
+         return
     prompt = message.text.strip()
     mode = user_modes.get(chat_id, "копирайтер")
     model = user_models.get(chat_id, "gpt-3.5-turbo")
