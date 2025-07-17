@@ -136,7 +136,6 @@ try:
 except:
     trial_start_times = {}
     print("⚠️ trial_start_times не найден или пустой. Создан пустой словарь.")
-except:
     pass
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
