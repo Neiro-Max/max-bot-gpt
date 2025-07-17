@@ -264,7 +264,7 @@ def handle_prompt(message):
     tokens_used = user_token_limits.get(chat_id, 0)
     time_elapsed = time.time() - trial_start_times[chat_id]
    if time_elapsed > TRIAL_DURATION_SECONDS or tokens_used >= TRIAL_TOKEN_LIMIT:
-        # 🔔 Уведомление о завершении пробника + кнопки с тарифами
+        # ⚠️ Уведомление о завершении пробника + кнопки с тарифами
         return_url = "https://t.me/NeiroMaxBot"
         buttons = []
         tariffs = [
@@ -282,12 +282,10 @@ def handle_prompt(message):
         markup = types.InlineKeyboardMarkup(row_width=1)
         for btn in buttons:
             markup.add(btn)
-
         bot.send_message(chat_id,
                          "⛔ Пробный период завершён.\n\nВыберите тариф для продолжения работы:",
                          reply_markup=markup)
         return
-
     prompt = message.text.strip()
     mode = user_modes.get(chat_id, "копирайтер")
     model = user_models.get(chat_id, "gpt-3.5-turbo")
