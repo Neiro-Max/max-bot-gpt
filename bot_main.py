@@ -129,6 +129,11 @@ def format_buttons():
     return markup
 
 used_trials = load_used_trials()
+try:
+    with open(TRIAL_TIMES_FILE, "r", encoding="utf-8") as f:
+        trial_start_times = json.load(f)
+except:
+    pass
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
