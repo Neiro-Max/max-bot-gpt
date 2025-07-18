@@ -150,6 +150,14 @@ Path(MEMORY_DIR).mkdir(exist_ok=True)
 @bot.message_handler(commands=["start"])
 def handle_start(message):
     chat_id = str(message.chat.id)
+
+    if chat_id not in user_modes:
+        user_modes[chat_id] = "копирайтер"
+        user_histories[chat_id] = []
+        user_models[chat_id] = "gpt-3.5-turbo"
+        user_token_limits[chat_id] = 0
+        bot.send_message(chat_id, f"Привет! Я {BOT_NAME} — твой ассистент. Чем могу помочь?", reply_markup=main_menu(chat_id))
+
     if chat_id in used_trials:
         bot.send_message(chat_id, "⛔ Вы уже использовали пробный доступ.")
         return
@@ -343,7 +351,7 @@ def handle_file_format(call):
         doc.save(word_bytes)
         word_bytes.seek(0)
         bot.send_document(chat_id, ("neiro_max_output.docx", word_bytes))
-@bot.message_handler(func=lambda message: message.text.lower() in ['привет', 'начать', 'запуск', 'hello', 'hi'])
+  @bot.message_handler(func=lambda message: message.text.lower() in ['привет', 'начать', 'запуск', 'hello', 'hi'])
 def handle_first_message(message):
     chat_id = str(message.chat.id)
 
