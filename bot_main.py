@@ -343,7 +343,7 @@ def handle_file_format(call):
         doc.save(word_bytes)
         word_bytes.seek(0)
         bot.send_document(chat_id, ("neiro_max_output.docx", word_bytes))
-      @bot.message_handler(func=lambda message: message.text.lower() in ['привет', 'начать', 'запуск', 'hello', 'hi'])
+  @bot.message_handler(func=lambda message: message.text.lower() in ['привет', 'начать', 'запуск', 'hello', 'hi'])
 def handle_first_message(message):
     chat_id = str(message.chat.id)
 
@@ -359,7 +359,6 @@ def handle_first_message(message):
         user_token_limits[message.chat.id] = 0
     else:
         bot.send_message(chat_id, f"Привет снова! Вот твоё главное меню:", reply_markup=main_menu(chat_id))
-
 print("🤖 Neiro Max запущен.")
 app = Flask(__name__)
 
