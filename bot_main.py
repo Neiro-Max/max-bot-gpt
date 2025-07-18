@@ -225,9 +225,11 @@ def handle_style_selection(message):
 
 
 
-@bot.message_handler(func=lambda msg: msg.text.lower() in ["привет", "начать", "запуск", "hello", "hi"])
+@bot.message_handler(func=lambda message: message.text and message.text.lower() in ['привет', 'начать', 'запуск', 'hello', 'hi'])
 def handle_greeting(message):
-    bot.send_message(message.chat.id, "Привет! Я готов помочь. Вот главное меню:", reply_markup=main_menu())
+    user_id = message.chat.id
+    users[user_id] = users.get(user_id, {})
+    bot.send_message(user_id, "👋 Привет! Я Neiro Max — чем могу быть полезен?", reply_markup=main_menu_markup())
 
 @bot.message_handler(func=lambda msg: True)
 def handle_prompt(message):
