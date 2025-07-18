@@ -173,6 +173,12 @@ def handle_start(message):
     user_histories[message.chat.id] = []
     user_models[message.chat.id] = "gpt-3.5-turbo"
     user_token_limits[message.chat.id] = 0
+    @bot.message_handler(func=lambda msg: msg.text.lower() == "тест")
+def handle_test_keyboard(message):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("Кнопка 1", "Кнопка 2")
+    bot.send_message(message.chat.id, "Вот тебе клавиатура:", reply_markup=markup)
+
 @bot.message_handler(func=lambda msg: msg.text == "📄 Тарифы")
 def handle_tariffs(message):
     return_url = "https://t.me/NeiroMaxBot"
