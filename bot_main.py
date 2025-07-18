@@ -347,11 +347,11 @@ def handle_file_format(call):
         def handle_first_message(message):
         chat_id = str(message.chat.id)
 
-    if chat_id not in used_trials:
-        # Устанавливаем пробник
+if chat_id not in used_trials:
+         # Устанавливаем пробник
         used_trials[chat_id] = True
         trial_start_times[chat_id] = time.time()
-        save_used_trials(used_trials)
+        ave_used_trials(used_trials)
         bot.send_message(chat_id, f"Привет! Я {BOT_NAME} — твой ассистент. Чем могу помочь? 😉", reply_markup=main_menu(chat_id))
         user_modes[message.chat.id] = "копирайтер"
         user_histories[message.chat.id] = []
