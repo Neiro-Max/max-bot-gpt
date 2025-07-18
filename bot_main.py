@@ -343,7 +343,7 @@ def handle_file_format(call):
         doc.save(word_bytes)
         word_bytes.seek(0)
         bot.send_document(chat_id, ("neiro_max_output.docx", word_bytes))
-       @bot.message_handler(func=lambda message: message.text.lower() in ['привет', 'начать', 'запуск', 'hello', 'hi'])
+      @bot.message_handler(func=lambda message: message.text.lower() in ['привет', 'начать', 'запуск', 'hello', 'hi'])
 def handle_first_message(message):
     chat_id = str(message.chat.id)
 
@@ -352,7 +352,7 @@ def handle_first_message(message):
         used_trials[chat_id] = True
         trial_start_times[chat_id] = time.time()
         save_used_trials(used_trials)
-        bot.send_message(chat_id, f"Привет! Я {BOT_NAME} — твой ассистент. Чем могу помочь? 🥹", reply_markup=main_menu(chat_id))
+        bot.send_message(chat_id, f"Привет! Я {BOT_NAME} — твой ассистент. Чем могу помочь? 😏", reply_markup=main_menu(chat_id))
         user_modes[message.chat.id] = "копирайтер"
         user_histories[message.chat.id] = []
         user_models[message.chat.id] = "gpt-3.5-turbo"
