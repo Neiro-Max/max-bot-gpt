@@ -224,6 +224,11 @@ def handle_style_selection(message):
     bot.send_message(chat_id, f"✅ Стиль общения изменён на: <b>{selected.capitalize()}</b>", parse_mode="HTML")
 
 
+
+@bot.message_handler(func=lambda msg: msg.text.lower() in ["привет", "начать", "запуск", "hello", "hi"])
+def handle_greeting(message):
+    bot.send_message(message.chat.id, "Привет! Я готов помочь. Вот главное меню:", reply_markup=main_menu())
+
 @bot.message_handler(func=lambda msg: True)
 def handle_prompt(message):
     chat_id = str(message.chat.id)
@@ -274,13 +279,6 @@ def handle_file_format(call):
         word_bytes.seek(0)
         bot.send_document(chat_id, ("neiro_max_output.docx", word_bytes))
 
-
-@bot.message_handler(func=lambda message: True)
-def handle_first_message(message):
-    chat_id = message.chat.id
-    if chat_id not in user_data:
-        user_data[chat_id] = {"style": "default"}
-        send_main_menu(message)
 print("🤖 Neiro Max запущен.")
 app = Flask(__name__)
 
