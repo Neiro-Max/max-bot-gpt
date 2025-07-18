@@ -340,8 +340,6 @@ def handle_prompt(message):
     save_history(chat_id, history)
 
     bot.send_message(chat_id, reply, reply_markup=format_buttons())
-        # 🧪 ВРЕМЕННО: форсируем показ клавиатуры всем
-    bot.send_message(chat_id, "🧪 Клавиатура должна появиться ниже 👇", reply_markup=main_menu(message.chat.id))
 
 @bot.callback_query_handler(func=lambda call: call.data in ["save_pdf", "save_word"])
 def handle_file_format(call):
