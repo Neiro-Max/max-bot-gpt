@@ -151,12 +151,8 @@ Path(MEMORY_DIR).mkdir(exist_ok=True)
 def handle_start(message):
     chat_id = str(message.chat.id)
 
-    if chat_id not in user_modes:
-        user_modes[chat_id] = "копирайтер"
-        user_histories[chat_id] = []
-        user_models[chat_id] = "gpt-3.5-turbo"
-        user_token_limits[chat_id] = 0
-        bot.send_message(chat_id, f"Привет! Я {BOT_NAME} — твой ассистент. Чем могу помочь?", reply_markup=main_menu(chat_id))
+    if message.chat.type == "private":
+        bot.send_message(chat_id, "📋 Главное меню:", reply_markup=main_menu(chat_id))
 
     if chat_id in used_trials:
         bot.send_message(chat_id, "⛔ Вы уже использовали пробный доступ.")
@@ -164,7 +160,6 @@ def handle_start(message):
     used_trials[chat_id] = True
     trial_start_times = load_trial_times()
     save_used_trials(used_trials)
-    bot.send_message(chat_id, f"Привет! Я {BOT_NAME} — твой ассистент. Чем могу помочь? 😉", reply_markup=main_menu(message.chat.id))
     user_modes[message.chat.id] = "копирайтер"
     user_histories[message.chat.id] = []
     user_models[message.chat.id] = "gpt-3.5-turbo"
@@ -256,7 +251,6 @@ def handle_launch_neiro_max(message):
 def handle_style_selection(message):
     chat_id = str(message.chat.id)
     selected = message.text.lower()
-    user_modes[chat_id] = selected
     bot.send_message(chat_id, f"✅ Стиль общения изменён на: <b>{selected.capitalize()}</b>", parse_mode="HTML")
 
 
@@ -323,7 +317,6 @@ def handle_prompt(message):
         return
 
     # ✅ Сохраняем токены и историю
-    user_token_limits[chat_id] = tokens_used + len(prompt)
     history.append({"role": "user", "content": prompt})
     history.append({"role": "assistant", "content": reply})
     save_history(chat_id, history)
@@ -360,13 +353,11 @@ def handle_first_message(message):
         used_trials[chat_id] = True
         trial_start_times[chat_id] = time.time()
         save_used_trials(used_trials)
-        bot.send_message(chat_id, f"Привет! Я {BOT_NAME} — твой ассистент. Чем могу помочь? 😏", reply_markup=main_menu(chat_id))
         user_modes[message.chat.id] = "копирайтер"
         user_histories[message.chat.id] = []
         user_models[message.chat.id] = "gpt-3.5-turbo"
         user_token_limits[message.chat.id] = 0
     else:
-        bot.send_message(chat_id, f"Привет снова! Вот твоё главное меню:", reply_markup=main_menu(chat_id))
 print("🤖 Neiro Max запущен.")
 app = Flask(__name__)
 
@@ -405,7 +396,6 @@ def yookassa_webhook():
             print(f"[Webhook] Модель уже активирована для chat_id={chat_id}")
             return jsonify({"status": "already activated"})
 
-        user_models[chat_id] = model
         bot.send_message(chat_id, f"✅ Оплата прошла успешно!\nАктивирован тариф: <b>{description}</b>", parse_mode="HTML")
 
     return jsonify({"status": "ok"})
