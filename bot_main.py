@@ -240,7 +240,10 @@ def handle_rules(message):
     bot.send_message(message.chat.id, rules_text, parse_mode="HTML")
 
 
-@bot.message_handler(func=lambda msg: msg.text.lower() in ["как тебя зовут", "как тебя зовут?", "твоё имя", "ты кто", "ты кто?"])
+@bot.message_handler(func=lambda msg: any(phrase in msg.text.lower() for phrase in [
+    "как тебя зовут", "твоё имя", "ты кто", "как звать", "называешься", "назови себя"
+]))
+
 def handle_bot_name(message):
     bot.send_message(message.chat.id, f"Я — {BOT_NAME}, твой персональный AI-ассистент 😉")
 
