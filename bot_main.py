@@ -358,7 +358,7 @@ def handle_first_message(message):
         user_models[message.chat.id] = "gpt-3.5-turbo"
         user_token_limits[message.chat.id] = 0
     else:
-print("🤖 Neiro Max запущен.")
+    print("🤖 Neiro Max запущен.")
 app = Flask(__name__)
 
 @app.route("/webhook", methods=["POST"])
