@@ -401,6 +401,28 @@ def yookassa_webhook():
             return jsonify({"status": "already activated"})
 
         user_models[chat_id] = model
+        # 🗓️ Запись срока действия тарифа (30 дней)
+subscription_file = "subscriptions.json"
+try:
+    if os.path.exists(subscription_file):
+        with open(subscription_file, "r", encoding="utf-8") as f:
+            subscriptions = json.load(f)
+    else:
+        subscriptions = {}
+
+    expires_at = int(time.time()) + 30 * 86400  # 30 дней вперёд
+    subscriptions[str(chat_id)] = {
+        "expires_at": expires_at,
+        "warned": False
+    }
+
+    with open(subscription_file, "w", encoding="utf-8") as f:
+        json.dump(subscriptions, f, indent=2)
+
+    print(f"[YooKassa] Подписка активирована для {chat_id} до {expires_at}")
+except Exception as e:
+    print(f"[Ошибка записи подписки]: {e}")
+
         bot.send_message(chat_id, f"✅ Оплата прошла успешно!\nАктивирован тариф: <b>{description}</b>", parse_mode="HTML")
 
     return jsonify({"status": "ok"})
