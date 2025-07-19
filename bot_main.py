@@ -423,7 +423,7 @@ try:
 except Exception as e:
     print(f"[Ошибка записи подписки]: {e}")
 
-        bot.send_message(chat_id, f"✅ Оплата прошла успешно!\nАктивирован тариф: <b>{description}</b>", parse_mode="HTML")
+bot.send_message(chat_id, f"✅ Оплата прошла успешно!\nАктивирован тариф: <b>{description}</b>", parse_mode="HTML")
 
     return jsonify({"status": "ok"})
 
