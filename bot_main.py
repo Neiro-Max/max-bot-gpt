@@ -76,19 +76,20 @@ def check_access_and_notify(chat_id):
             warned = sub_data.get("warned", False)
             token_limit = sub_data.get("token_limit", 100000)
 
-            if tokens_used >= token_limit:
-                bot.send_message(chat_id, "⛔ Вы исчерпали лимит токенов по вашему тарифу. Пожалуйста, продлите подписку.")
-                return False
+           if tokens_used >= token_limit:
+    bot.send_message(chat_id, "⛔ Вы исчерпали лимит токенов по вашему тарифу. Пожалуйста, продлите подписку.")
+    return False
 
-            if expires_at and now > expires_at:
-                bot.send_message(chat_id, "⛔ Срок действия вашего тарифа истёк. Пожалуйста, выберите новый тариф.")
-                return False
+if expires_at and now > expires_at:
+    bot.send_message(chat_id, "⛔ Срок действия вашего тарифа истёк. Пожалуйста, выберите новый тариф.")
+    return False
 
-            if expires_at and not warned and expires_at - now <= 86400:
-                bot.send_message(chat_id, "⚠️ Ваш тариф заканчивается через 24 часа. Не забудьте продлить доступ.")
-               subscriptions[str(chat_id)]["warned"] = True
-with open(subscription_file, "w", encoding="utf-8") as f:
-    json.dump(subscriptions, f, indent=2)
+if expires_at and not warned and expires_at - now <= 86400:
+    bot.send_message(chat_id, "⚠️ Ваш тариф заканчивается через 24 часа. Не забудьте продлить доступ.")
+    subscriptions[str(chat_id)]["warned"] = True
+    with open(subscription_file, "w", encoding="utf-8") as f:
+        json.dump(subscriptions, f, indent=2)
+
 
 
 
