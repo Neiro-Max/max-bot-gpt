@@ -402,6 +402,17 @@ def yookassa_webhook():
 
         # ✅ Активируем модель
         user_models[chat_id] = model
+                # 🎯 Назначение лимита токенов по тарифу
+        token_limits = {
+            "GPT-3.5 Lite": 50000,
+            "GPT-3.5 Pro": 100000,
+            "GPT-3.5 Max": 1000000,
+            "GPT-4o Lite": 30000,
+            "GPT-4o Pro": 60000,
+            "GPT-4o Max": 1000000
+        }
+        token_limit = token_limits.get(description, 100000)
+
 
         # 🗓️ Запись срока действия тарифа (30 дней)
         subscription_file = "subscriptions.json"
@@ -413,10 +424,12 @@ def yookassa_webhook():
                 subscriptions = {}
 
             expires_at = int(time.time()) + 30 * 86400  # 30 дней вперёд
-            subscriptions[str(chat_id)] = {
-                "expires_at": expires_at,
-                "warned": False
-            }
+           subscriptions[str(chat_id)] = {
+    "expires_at": expires_at,
+    "warned": False,
+    "token_limit": token_limit
+}
+
 
             with open(subscription_file, "w", encoding="utf-8") as f:
                 json.dump(subscriptions, f, indent=2)
