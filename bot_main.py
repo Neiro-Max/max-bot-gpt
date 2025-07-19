@@ -413,25 +413,21 @@ def yookassa_webhook():
         }
         token_limit = token_limits.get(description, 100000)
 
-
         # 🗓️ Запись срока действия тарифа (30 дней)
         subscription_file = "subscriptions.json"
         try:
             if os.path.exists(subscription_file):
                 with open(subscription_file, "r", encoding="utf-8") as f:
                     subscriptions = json.load(f)
-                   else:
-            subscriptions = {}
+            else:
+                subscriptions = {}
+
             expires_at = int(time.time()) + 30 * 86400  # 30 дней вперёд
             subscriptions[str(chat_id)] = {
                 "expires_at": expires_at,
                 "warned": False,
                 "token_limit": token_limit
             }
-            with open(subscription_file, "w", encoding="utf-8") as f:
-                json.dump(subscriptions, f, indent=2)
-
-
 
             with open(subscription_file, "w", encoding="utf-8") as f:
                 json.dump(subscriptions, f, indent=2)
