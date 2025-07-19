@@ -35,64 +35,49 @@ def check_access_and_notify(chat_id):
     now = time.time()
     tokens_used = user_token_limits.get(chat_id, 0)
 
-    # === Проверка пробного доступа ===
+    # === Проверка пробного периода ===
     is_trial = str(chat_id) not in user_models or user_models[str(chat_id)] == "gpt-3.5-turbo"
     trial_start = trial_start_times.get(str(chat_id))
+
     if is_trial and trial_start:
         time_elapsed = now - trial_start
         if time_elapsed > TRIAL_DURATION_SECONDS or tokens_used >= TRIAL_TOKEN_LIMIT:
-            return_url = "https://t.me/NeiroMaxBot"
-            buttons = []
-            tariffs = [
-                ("GPT-3.5: Lite — 199₽", 199, "GPT-3.5 Lite"),
-                ("GPT-3.5: Pro — 299₽", 299, "GPT-3.5 Pro"),
-                ("GPT-3.5: Max — 399₽", 399, "GPT-3.5 Max"),
-                ("GPT-4o: Lite — 299₽", 299, "GPT-4o Lite"),
-                ("GPT-4o: Pro — 499₽", 499, "GPT-4o Pro"),
-                ("GPT-4o: Max — 999₽", 999, "GPT-4o Max")
-            ]
-            for label, price, desc in tariffs:
-                url = create_payment(price, desc, return_url, chat_id)
-                if url:
-                    buttons.append(types.InlineKeyboardButton(f"💳 {label}", url=url))
-            markup = types.InlineKeyboardMarkup(row_width=1)
-            for btn in buttons:
-                markup.add(btn)
-            bot.send_message(chat_id, "⛔ Пробный период завершён.\n\nВыберите тариф для продолжения работы:", reply_markup=markup)
+            # ЖЁСТКАЯ БЛОКИРОВКА
+            bot.send_message(chat_id, "⛔ Пробный период завершён. Для продолжения выберите тариф.")
             return False
 
-    # === Проверка платной подписки ===
-    if str(chat_id) in user_models:
-        subscription_file = "subscriptions.json"
-        if os.path.exists(subscription_file):
-            with open(subscription_file, "r", encoding="utf-8") as f:
-                subscriptions = json.load(f)
-        else:
-            subscriptions = {}
+    # === Проверка оплаченного тарифа ===
+    subscription_file = "subscriptions.json"
+    if os.path.exists(subscription_file):
+        with open(subscription_file, "r", encoding="utf-8") as f:
+            subscriptions = json.load(f)
+    else:
+        subscriptions = {}
 
-        sub_data = subscriptions.get(str(chat_id))
-        if sub_data:
-            expires_at = sub_data.get("expires_at")
-            warned = sub_data.get("warned", False)
-            token_limit = sub_data.get("token_limit", 100000)
+    sub_data = subscriptions.get(str(chat_id))
+    if sub_data:
+        expires_at = sub_data.get("expires_at")
+        warned = sub_data.get("warned", False)
+        token_limit = sub_data.get("token_limit", 100000)
 
-            if tokens_used >= token_limit:
-                bot.send_message(chat_id, "⛔ Вы исчерпали лимит токенов по вашему тарифу. Пожалуйста, продлите подписку.")
-                return False
+        # Лимит токенов исчерпан — блок
+        if tokens_used >= token_limit:
+            bot.send_message(chat_id, "⛔ Вы исчерпали лимит токенов. Пожалуйста, продлите подписку.")
+            return False
 
-            if expires_at and now > expires_at:
-                bot.send_message(chat_id, "⛔ Срок действия вашего тарифа истёк. Пожалуйста, выберите новый тариф.")
-                return False
+        # Срок действия подписки истёк — блок
+        if expires_at and now > expires_at:
+            bot.send_message(chat_id, "⛔ Срок действия вашего тарифа истёк. Пожалуйста, выберите новый тариф.")
+            return False
 
-            if expires_at and not warned and expires_at - now <= 86400:
-                bot.send_message(chat_id, "⚠️ Ваш тариф заканчивается через 24 часа. Не забудьте продлить доступ.")
-                subscriptions[str(chat_id)]["warned"] = True
-                with open(subscription_file, "w", encoding="utf-8") as f:
-                    json.dump(subscriptions, f, indent=2)
+        # Предупреждение за 24 часа до окончания
+        if expires_at and not warned and expires_at - now <= 86400:
+            bot.send_message(chat_id, "⚠️ Ваш тариф заканчивается через 24 часа. Не забудьте продлить доступ.")
+            subscriptions[str(chat_id)]["warned"] = True
+            with open(subscription_file, "w", encoding="utf-8") as f:
+                json.dump(subscriptions, f, indent=2)
 
     return True
-
-
 
 
 available_modes = {
