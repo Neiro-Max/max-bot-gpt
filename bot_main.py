@@ -385,7 +385,7 @@ def yookassa_webhook():
         chat_id = metadata.get("chat_id")
 
         if not chat_id:
-            return jsonify({"status": "chat_id missing"})
+    return jsonify({"status": "chat_id missing"})
 
         # Определяем модель
         if "GPT-3.5" in description:
@@ -393,7 +393,7 @@ def yookassa_webhook():
         elif "GPT-4" in description:
             model = "gpt-4o"
         else:
-            return jsonify({"status": "unknown model"})
+    return jsonify({"status": "unknown model"})
 
         # 🔐 Защита от повторной отправки
         if chat_id in user_models:
