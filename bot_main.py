@@ -67,7 +67,7 @@ def check_access_and_notify(chat_id):
 
         # Срок действия подписки истёк — блок
        # Срок действия подписки истёк — блок
-if expires_at and now > expires_at:
+    if expires_at and now > expires_at:
     bot.send_message(chat_id, "⛔ Срок действия вашего тарифа истёк. Пожалуйста, выберите новый тариф.")
 
     # Удаляем подписку
@@ -85,7 +85,7 @@ if expires_at and now > expires_at:
 
 
         # Предупреждение за 24 часа до окончания
-        if expires_at and not warned and expires_at - now <= 86400:
+    if expires_at and not warned and expires_at - now <= 86400:
             bot.send_message(chat_id, "⚠️ Ваш тариф заканчивается через 24 часа. Не забудьте продлить доступ.")
             subscriptions[str(chat_id)]["warned"] = True
             with open(subscription_file, "w", encoding="utf-8") as f:
