@@ -66,9 +66,23 @@ def check_access_and_notify(chat_id):
             return False
 
         # Срок действия подписки истёк — блок
-        if expires_at and now > expires_at:
-            bot.send_message(chat_id, "⛔ Срок действия вашего тарифа истёк. Пожалуйста, выберите новый тариф.")
-            return False
+       # Срок действия подписки истёк — блок
+if expires_at and now > expires_at:
+    bot.send_message(chat_id, "⛔ Срок действия вашего тарифа истёк. Пожалуйста, выберите новый тариф.")
+
+    # Удаляем подписку
+    subscriptions.pop(str(chat_id), None)
+    with open(subscription_file, "w", encoding="utf-8") as f:
+        json.dump(subscriptions, f, indent=2)
+
+    # Удаляем модель
+    user_models.pop(str(chat_id), None)
+    with open("user_models.json", "w", encoding="utf-8") as f:
+        json.dump(user_models, f, indent=2)
+
+    return False
+
+
 
         # Предупреждение за 24 часа до окончания
         if expires_at and not warned and expires_at - now <= 86400:
