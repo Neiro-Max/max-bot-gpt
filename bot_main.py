@@ -9,24 +9,6 @@ from reportlab.pdfgen import canvas
 import openai
 from flask import Flask, request, jsonify
 from yookassa import Configuration, Payment
-from yookassa import Configuration, Payment
-
-
-def get_gpt_response(prompt, chat_id):
-    model = user_models.get(str(chat_id), "gpt-3.5-turbo")
-    messages = [{"role": "user", "content": prompt}]
-    try:
-        response = openai.ChatCompletion.create(
-            model=model,
-            messages=messages
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        return f"Произошла ошибка при обращении к GPT: {e}"
-
-
-# === КОНФИГ ===
-YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
 
 # === КОНФИГ ===
 YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
@@ -84,44 +66,16 @@ def check_access_and_notify(chat_id):
             return False
 
         # Срок действия подписки истёк — блок
-       # Срок действия подписки истёк — блок
-    if expires_at and now > expires_at:
-        bot.send_message(chat_id, "⛔ Срок действия вашего тарифа истёк. Пожалуйста, выберите новый тариф.")
+        if expires_at and now > expires_at:
+            bot.send_message(chat_id, "⛔ Срок действия вашего тарифа истёк. Пожалуйста, выберите новый тариф.")
+            return False
 
-    # Удаляем подписку
-    subscriptions.pop(str(chat_id), None)
-    with open(subscription_file, "w", encoding="utf-8") as f:
-        json.dump(subscriptions, f, indent=2)
-
-    # Удаляем модель
-    user_models.pop(str(chat_id), None)
-    with open("user_models.json", "w", encoding="utf-8") as f:
-        json.dump(user_models, f, indent=2)
-
-    return False
-
-
-
-           # Предупреждение за 24 часа до окончания
-    if expires_at and not warned and expires_at - now <= 86400:
-        bot.send_message(chat_id, "⚠️ Ваш тариф заканчивается через 24 часа. Не забудьте продлить доступ.")
-        subscriptions[str(chat_id)]["warned"] = True
-        with open(subscription_file, "w", encoding="utf-8") as f:
-            json.dump(subscriptions, f, indent=2)
-
-        # Автоматическое включение модели по названию тарифа
-        if "GPT-4o" in description:
-            user_models[str(chat_id)] = "gpt-4o"
-        elif "GPT-3.5" in description:
-            user_models[str(chat_id)] = "gpt-3.5-turbo"
-        else:
-            user_models[str(chat_id)] = "gpt-3.5-turbo"  # по умолчанию
-
-        # Сохраняем модель в файл
-        with open("user_models.json", "w", encoding="utf-8") as f:
-            json.dump(user_models, f, indent=2)
-
-
+        # Предупреждение за 24 часа до окончания
+        if expires_at and not warned and expires_at - now <= 86400:
+            bot.send_message(chat_id, "⚠️ Ваш тариф заканчивается через 24 часа. Не забудьте продлить доступ.")
+            subscriptions[str(chat_id)]["warned"] = True
+            with open(subscription_file, "w", encoding="utf-8") as f:
+                json.dump(subscriptions, f, indent=2)
 
     return True
 
@@ -365,15 +319,8 @@ def handle_style_selection(message):
 
 
 @bot.message_handler(func=lambda msg: True)
-def handle_text(msg):
-    chat_id = msg.chat.id
-    if not check_access_and_notify(chat_id):
-        return
-
-    prompt = msg.text
-    response = get_gpt_response(prompt, chat_id)
-    bot.send_message(chat_id, response)
-
+def handle_prompt(message):
+    chat_id = str(message.chat.id)
 
     # 🔒 Проверка доступа (тариф/пробник)
     if not check_access_and_notify(chat_id):
