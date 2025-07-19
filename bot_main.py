@@ -68,7 +68,7 @@ def check_access_and_notify(chat_id):
         # Срок действия подписки истёк — блок
        # Срок действия подписки истёк — блок
     if expires_at and now > expires_at:
-    bot.send_message(chat_id, "⛔ Срок действия вашего тарифа истёк. Пожалуйста, выберите новый тариф.")
+        bot.send_message(chat_id, "⛔ Срок действия вашего тарифа истёк. Пожалуйста, выберите новый тариф.")
 
     # Удаляем подписку
     subscriptions.pop(str(chat_id), None)
