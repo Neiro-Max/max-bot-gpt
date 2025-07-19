@@ -9,6 +9,24 @@ from reportlab.pdfgen import canvas
 import openai
 from flask import Flask, request, jsonify
 from yookassa import Configuration, Payment
+from yookassa import Configuration, Payment
+
+
+def get_gpt_response(prompt, chat_id):
+    model = user_models.get(str(chat_id), "gpt-3.5-turbo")
+    messages = [{"role": "user", "content": prompt}]
+    try:
+        response = openai.ChatCompletion.create(
+            model=model,
+            messages=messages
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"Произошла ошибка при обращении к GPT: {e}"
+
+
+# === КОНФИГ ===
+YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
 
 # === КОНФИГ ===
 YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
@@ -347,8 +365,15 @@ def handle_style_selection(message):
 
 
 @bot.message_handler(func=lambda msg: True)
-def handle_prompt(message):
-    chat_id = str(message.chat.id)
+def handle_text(msg):
+    chat_id = msg.chat.id
+    if not check_access_and_notify(chat_id):
+        return
+
+    prompt = msg.text
+    response = get_gpt_response(prompt, chat_id)
+    bot.send_message(chat_id, response)
+
 
     # 🔒 Проверка доступа (тариф/пробник)
     if not check_access_and_notify(chat_id):
