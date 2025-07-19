@@ -76,6 +76,16 @@ def check_access_and_notify(chat_id):
             subscriptions[str(chat_id)]["warned"] = True
             with open(subscription_file, "w", encoding="utf-8") as f:
                 json.dump(subscriptions, f, indent=2)
+                if "GPT-4o" in description:
+    user_models[str(chat_id)] = "gpt-4o"
+elif "GPT-3.5" in description:
+    user_models[str(chat_id)] = "gpt-3.5-turbo"
+else:
+    user_models[str(chat_id)] = "gpt-3.5-turbo"  # по умолчанию
+
+with open("user_models.json", "w", encoding="utf-8") as f:
+    json.dump(user_models, f, indent=2)
+
 
     return True
 
