@@ -160,9 +160,13 @@ def main_menu(chat_id=None):
     markup.add("🚀 Запустить Neiro Max")
     markup.add("💡 Сменить стиль", "📄 Тарифы")
     markup.add("📘 Правила")
+    markup.add("🆘 Поддержка")  # 👈 ДОБАВЛЕНО
+
     if chat_id and is_admin(chat_id):
         markup.add("♻️ Сброс пробника")
+
     return markup
+
 
 def style_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
