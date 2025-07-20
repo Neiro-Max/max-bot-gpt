@@ -159,10 +159,11 @@ def main_menu(chat_id=None):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("🚀 Запустить Neiro Max")
     markup.add("💡 Сменить стиль", "📄 Тарифы")
-    markup.add("📘 Правила")
+    markup.add("📘 Правила", "📞 Поддержка")
     if chat_id and is_admin(chat_id):
         markup.add("♻️ Сброс пробника")
     return markup
+
 
 def style_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -307,6 +308,16 @@ def handle_main_menu(message):
 @bot.message_handler(func=lambda msg: msg.text == "🚀 Запустить Neiro Max")
 def handle_launch_neiro_max(message):
     bot.send_message(message.chat.id, "Готов к работе! Чем могу помочь?", reply_markup=main_menu(message.chat.id))
+@bot.message_handler(func=lambda msg: msg.text == "📞 Поддержка")
+def handle_support(message):
+    bot.send_message(
+        message.chat.id,
+        "🛠 <b>Поддержка</b>\n\nЕсли возникли вопросы или проблемы, напишите разработчику:\n\n"
+        "Telegram: @neiro_max\n"
+        "Email: support@neiro-max.ai",
+        parse_mode="HTML"
+    )
+
 
 
 
