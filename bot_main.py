@@ -353,7 +353,7 @@ def handle_users_count(message):
 def handle_prompt(message):
     chat_id = str(message.chat.id)
 
-    # 📌 Добавляем пользователя в список, если он новый
+    # ✅ Добавляем пользователя в users.json
     users_file = "users.json"
     if os.path.exists(users_file):
         with open(users_file, "r", encoding="utf-8") as f:
@@ -369,6 +369,7 @@ def handle_prompt(message):
     # 🔒 Проверка доступа (тариф/пробник)
     if not check_access_and_notify(chat_id):
         return
+
 
 
     # ✅ Гарантируем, что старт пробника установлен
