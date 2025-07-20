@@ -323,14 +323,15 @@ def handle_launch_neiro_max(message):
     bot.send_message(message.chat.id, "Готов к работе! Чем могу помочь?", reply_markup=main_menu(message.chat.id))
 
 
-
 @bot.message_handler(func=lambda msg: msg.text.lower() in [m.lower() for m in available_modes])
 def handle_style_selection(message):
     chat_id = str(message.chat.id)
     selected = message.text.lower()
     user_modes[chat_id] = selected
     bot.send_message(chat_id, f"✅ Стиль общения изменён на: <b>{selected.capitalize()}</b>", parse_mode="HTML")
-    @bot.message_handler(commands=["users_count"])
+
+
+@bot.message_handler(commands=["users_count"])
 def handle_users_count(message):
     if message.chat.id != ADMIN_ID:
         return  # доступ только админу
@@ -345,10 +346,6 @@ def handle_users_count(message):
 
     bot.send_message(message.chat.id, f"👥 Всего пользователей: {count}")
 
-
-@bot.message_handler(func=lambda msg: True)
-def handle_prompt(message):
-    ...
 
 
 
