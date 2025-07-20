@@ -463,9 +463,8 @@ def yookassa_webhook():
 
             # Извлекаем ID платежа
             payment_id = data.get("object", {}).get("id")
-
-            # Проверяем статус платежа
             status = data.get("object", {}).get("status")
+
             if status == "succeeded":
                 # Получаем chat_id из описания
                 description = data.get("object", {}).get("description", "")
@@ -480,9 +479,11 @@ def yookassa_webhook():
                     # Активируем тариф
                     user_token_limits[chat_id] = 0
                     user_models[chat_id] = "gpt-4o"
+                    user_modes[chat_id] = "default"
+                    trial_start_times.pop(chat_id, None)  # сбрасываем пробный
 
-                    # Отправляем подтверждение пользователю
                     bot.send_message(chat_id, "✅ Оплата прошла успешно! Ваш тариф активирован.")
+
                 else:
                     print("❌ Ошибка: описание не содержит chat_id")
                     return "Missing chat_id", 400
@@ -495,6 +496,7 @@ def yookassa_webhook():
         return "OK", 200
     else:
         return "Invalid content type", 403
+
 
 
 @app.route("/yookassa/webhook", methods=["POST"])
