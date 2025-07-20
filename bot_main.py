@@ -26,7 +26,7 @@ TRIAL_DURATION_SECONDS = 86400  # 24 часа
 BOT_NAME = "Neiro Max"
 
 user_token_limits = {}
-user_modes = {}
+user_styles = {} 
 user_histories = {}
 user_models = {}
 trial_start_times = {}
@@ -325,14 +325,32 @@ def handle_style_selection(message):
 @bot.message_handler(func=lambda msg: True)
 def handle_prompt(message):
     chat_id = str(message.chat.id)
+    text = message.text.strip()
+
+    # ✅ Получаем текущий стиль общения (по словарю)
+    current_style = user_styles.get(chat_id, "Копирайтер")
+
+    # ✅ Разрешённые фразы вне зависимости от стиля
+    allowed_general_phrases = [
+        "Главное меню", "📋 Главное меню",
+        "🆘 Поддержка",
+        "📄 Тарифы",
+        "💡 Сменить стиль",
+        "🚀 Запустить Neiro Max",
+        "/start"
+    ]
+
+    # ⚠️ Если включен стиль "Копирайтер", и текст не подходит — блокируем
+    if current_style == "Копирайтер":
+        if text not in allowed_general_phrases:
+            # Простейшая проверка — пусть считается "копирайтерским", если больше 3 слов
+            if len(text.split()) < 4:
+                bot.send_message(chat_id, f"⚠️ Сейчас выбран стиль: *{current_style}*.\nЗапрос не соответствует выбранному стилю.\nСначала измени стиль через кнопку 💡", parse_mode="Markdown")
+                return
 
     # 🔒 Проверка доступа (тариф/пробник)
     if not check_access_and_notify(chat_id):
         return
-
-    # ✅ Гарантируем, что старт пробника установлен
-    if chat_id not in trial_start_times:
-        trial_start_times[chat_id] = time.time()
 
 
 
