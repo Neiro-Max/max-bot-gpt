@@ -330,6 +330,26 @@ def handle_style_selection(message):
     selected = message.text.lower()
     user_modes[chat_id] = selected
     bot.send_message(chat_id, f"✅ Стиль общения изменён на: <b>{selected.capitalize()}</b>", parse_mode="HTML")
+    @bot.message_handler(commands=["users_count"])
+def handle_users_count(message):
+    if message.chat.id != ADMIN_ID:
+        return  # доступ только админу
+
+    users_file = "users.json"
+    if os.path.exists(users_file):
+        with open(users_file, "r", encoding="utf-8") as f:
+            users = json.load(f)
+        count = len(users)
+    else:
+        count = 0
+
+    bot.send_message(message.chat.id, f"👥 Всего пользователей: {count}")
+
+
+@bot.message_handler(func=lambda msg: True)
+def handle_prompt(message):
+    ...
+
 
 
 @bot.message_handler(func=lambda msg: True)
