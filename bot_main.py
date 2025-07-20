@@ -459,11 +459,6 @@ def yookassa_webhook():
     data = request.json
     
 
-    # Проверяем статус
-    if data.get("object", {}).get("status") == "succeeded":
-        description = data.get("object", {}).get("description", "")
-        payment_id = data.get("object", {}).get("id")
-
         # Получаем chat_id из описания
         try:
             parts = description.split(":")
