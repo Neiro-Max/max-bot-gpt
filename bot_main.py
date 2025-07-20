@@ -434,7 +434,7 @@ def webhook():
 @app.route("/yookassa/webhook", methods=["POST"])
 def yookassa_webhook():
     data = request.json
-        data = request.json
+    
 
     # Проверяем статус
     if data.get("object", {}).get("status") == "succeeded":
