@@ -199,6 +199,17 @@ Path(MEMORY_DIR).mkdir(exist_ok=True)
 @bot.message_handler(commands=["start"])
 def handle_start(message):
     chat_id = str(message.chat.id)
+    @bot.message_handler(commands=["пользователи", "users"])
+def handle_user_count(message):
+    if message.from_user.id != ADMIN_ID:
+        return  # Только для админа
+    try:
+        used_trials = load_used_trials()
+        count = len(used_trials)
+        bot.send_message(message.chat.id, f"👥 Количество пользователей: {count}")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Ошибка при подсчёте: {e}")
+
 
     # Минимальная инициализация
     user_modes[message.chat.id] = "копирайтер"
