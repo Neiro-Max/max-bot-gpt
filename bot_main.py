@@ -455,45 +455,47 @@ def handle_file_format(call):
 print("🤖 Neiro Max запущен.")
 app = Flask(__name__)
 
-@app.route("/payment-webhook", methods=["POST"])
-def handle_payment_webhook():
-    try:
-        data = request.json
+@app.route("/yookassa/webhook", methods=["POST"])
+def yookassa_webhook():
+    if request.is_json:
+        try:
+            data = request.get_json()
 
-        # Проверяем статус оплаты
-        if data.get("object", {}).get("status") == "succeeded":
-            description = data.get("object", {}).get("description", "")
+            # Извлекаем ID платежа
             payment_id = data.get("object", {}).get("id")
 
-            # Извлекаем chat_id из описания
-            chat_id = description.split(":")[0] if ":" in description else description
+            # Проверяем статус платежа
+            status = data.get("object", {}).get("status")
+            if status == "succeeded":
+                # Получаем chat_id из описания
+                description = data.get("object", {}).get("description", "")
+                if description.startswith("chat_id:"):
+                    chat_id_str = description.replace("chat_id:", "").strip()
+                    try:
+                        chat_id = int(chat_id_str)
+                    except ValueError:
+                        print("❌ Ошибка: неверный chat_id")
+                        return "Invalid chat_id", 400
 
-            # Определяем модель по описанию тарифа
-            if "gpt-3.5" in description.lower():
-                user_models[chat_id] = "gpt-3.5-turbo"
-            elif "gpt-4" in description.lower():
-                user_models[chat_id] = "gpt-4o"
+                    # Активируем тариф
+                    user_token_limits[chat_id] = 0
+                    user_models[chat_id] = "gpt-4o"
+
+                    # Отправляем подтверждение пользователю
+                    bot.send_message(chat_id, "✅ Оплата прошла успешно! Ваш тариф активирован.")
+                else:
+                    print("❌ Ошибка: описание не содержит chat_id")
+                    return "Missing chat_id", 400
             else:
-                print("⚠️ Не удалось определить модель по описанию:", description)
-
-            # Сохраняем дату начала подписки
-            trial_start_times[chat_id] = time.time()
-
-            # Очищаем счётчик токенов
-            user_token_limits[chat_id] = 0
-
-            # Отправляем подтверждение пользователю
-            bot.send_message(chat_id, "✅ Оплата прошла успешно! Ваш тариф активирован.")
-        else:
-            print("❌ Платёж не прошёл: статус не 'succeeded'")
-    except Exception as e:
-        print("❌ Ошибка при обработке вебхука:", e)
-        import traceback
-        traceback.print_exc()
-    return "OK", 200
-
+                print("❌ Платёж не прошёл: статус не 'succeeded'")
+        except Exception as e:
+            print("❌ Ошибка при обработке вебхука:", e)
+            import traceback
+            traceback.print_exc()
+        return "OK", 200
     else:
         return "Invalid content type", 403
+
 
 @app.route("/yookassa/webhook", methods=["POST"])
 def yookassa_webhook():
