@@ -323,7 +323,7 @@ def handle_style_selection(message):
     selected = message.text.lower()
     user_modes[chat_id] = selected
     bot.send_message(chat_id, f"✅ Стиль общения изменён на: <b>{selected.capitalize()}</b>", parse_mode="HTML")
-    @bot.message_handler(func=lambda msg: msg.text == "🚀 Запустить Neiro Max")
+@bot.message_handler(func=lambda msg: msg.text == "🚀 Запустить Neiro Max")
 def handle_launch(message):
     chat_id = str(message.chat.id)
 
