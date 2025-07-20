@@ -200,27 +200,24 @@ Path(MEMORY_DIR).mkdir(exist_ok=True)
 def handle_start(message):
     chat_id = str(message.chat.id)
 
-    # 💡 Общая инициализация — выполняется для всех
+    # Минимальная инициализация
     user_modes[message.chat.id] = "копирайтер"
     user_histories[message.chat.id] = []
     user_models[message.chat.id] = "gpt-3.5-turbo"
     user_token_limits[message.chat.id] = 0
 
-    # Пробный доступ
+    # Активируем пробник, если ещё не использовался
     if chat_id not in used_trials:
         used_trials[chat_id] = True
         save_used_trials(used_trials)
-        bot.send_message(
-            message.chat.id,
-            f"Привет! Я {BOT_NAME} — твой ассистент. Пробный доступ активирован ✅\nЧем могу помочь?",
-            reply_markup=main_menu(message.chat.id)
-        )
-    else:
-        bot.send_message(
-            message.chat.id,
-            f"Привет снова! Я {BOT_NAME}, чем могу помочь? 😉",
-            reply_markup=main_menu(message.chat.id)
-        )
+
+    # Мягкое приветствие без лишнего
+    bot.send_message(
+        message.chat.id,
+        f"Привет! Я {BOT_NAME} — твой AI-ассистент 🤖\n\nНажми кнопку «🚀 Запустить Neiro Max» ниже, чтобы начать.",
+        reply_markup=main_menu(message.chat.id)
+    )
+
 
 
 
@@ -326,6 +323,22 @@ def handle_style_selection(message):
     selected = message.text.lower()
     user_modes[chat_id] = selected
     bot.send_message(chat_id, f"✅ Стиль общения изменён на: <b>{selected.capitalize()}</b>", parse_mode="HTML")
+    @bot.message_handler(func=lambda msg: msg.text == "🚀 Запустить Neiro Max")
+def handle_launch(message):
+    chat_id = str(message.chat.id)
+
+    # Повторная инициализация (на всякий случай)
+    user_modes[message.chat.id] = "копирайтер"
+    user_histories[message.chat.id] = []
+    user_models[message.chat.id] = "gpt-3.5-turbo"
+    user_token_limits[message.chat.id] = 0
+
+    bot.send_message(
+        message.chat.id,
+        "Готов к работе! Чем могу помочь? 😉",
+        reply_markup=main_menu(chat_id)
+    )
+
 
 
 @bot.message_handler(func=lambda msg: True)
