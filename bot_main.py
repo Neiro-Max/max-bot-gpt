@@ -212,21 +212,14 @@ def handle_start(message):
         save_used_trials(used_trials)
         bot.send_message(message.chat.id, f"Привет! Я {BOT_NAME} — твой ассистент. Чем могу помочь? 😉", reply_markup=main_menu(message.chat.id))
 
-    # 💡 Общая инициализация — выполняется для всех, даже если пробник уже был
+    # 💡 Общая инициализация — выполняется для всех
     user_modes[message.chat.id] = "копирайтер"
     user_histories[message.chat.id] = []
     user_models[message.chat.id] = "gpt-3.5-turbo"
     user_token_limits[message.chat.id] = 0
 
-    used_trials[chat_id] = True
-    trial_start_times = load_trial_times()
-    save_used_trials(used_trials)
-    bot.send_message(chat_id, f"Привет! Я {BOT_NAME} — твой ассистент. Чем могу помочь? 😉", reply_markup=main_menu(message.chat.id))
-    user_modes[message.chat.id] = "копирайтер"
-    user_histories[message.chat.id] = []
-    user_models[message.chat.id] = "gpt-3.5-turbo"
-    user_token_limits[message.chat.id] = 0
-    @bot.message_handler(func=lambda message: message.text == "🚀 Запустить Neiro Max")
+
+@bot.message_handler(func=lambda message: message.text == "🚀 Запустить Neiro Max")
 def handle_launch_button(message):
     chat_id = str(message.chat.id)
 
@@ -243,8 +236,6 @@ def handle_launch_button(message):
     user_histories[message.chat.id] = []
     user_models[message.chat.id] = "gpt-3.5-turbo"
     user_token_limits[message.chat.id] = 0
-
-
 
 @bot.message_handler(func=lambda msg: msg.text == "📄 Тарифы")
 def handle_tariffs(message):
