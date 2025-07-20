@@ -199,7 +199,7 @@ Path(MEMORY_DIR).mkdir(exist_ok=True)
 @bot.message_handler(commands=["start"])
 def handle_start(message):
     chat_id = str(message.chat.id)
-    @bot.message_handler(commands=["пользователи", "users"])
+@bot.message_handler(commands=["пользователи", "users"])
 def handle_user_count(message):
     if message.from_user.id != ADMIN_ID:
         return  # Только для админа
