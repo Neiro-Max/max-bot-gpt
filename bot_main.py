@@ -455,13 +455,43 @@ def handle_file_format(call):
 print("🤖 Neiro Max запущен.")
 app = Flask(__name__)
 
-@app.route("/webhook", methods=["POST"])
-def webhook():
-    if request.headers.get("content-type") == "application/json":
-        json_string = request.get_data().decode("utf-8")
-        update = types.Update.de_json(json_string)
-        bot.process_new_updates([update])
-        return "!", 200
+@app.route("/payment-webhook", methods=["POST"])
+def handle_payment_webhook():
+    try:
+        data = request.json
+
+        # Проверяем статус оплаты
+        if data.get("object", {}).get("status") == "succeeded":
+            description = data.get("object", {}).get("description", "")
+            payment_id = data.get("object", {}).get("id")
+
+            # Извлекаем chat_id из описания
+            chat_id = description.split(":")[0] if ":" in description else description
+
+            # Определяем модель по описанию тарифа
+            if "gpt-3.5" in description.lower():
+                user_models[chat_id] = "gpt-3.5-turbo"
+            elif "gpt-4" in description.lower():
+                user_models[chat_id] = "gpt-4o"
+            else:
+                print("⚠️ Не удалось определить модель по описанию:", description)
+
+            # Сохраняем дату начала подписки
+            trial_start_times[chat_id] = time.time()
+
+            # Очищаем счётчик токенов
+            user_token_limits[chat_id] = 0
+
+            # Отправляем подтверждение пользователю
+            bot.send_message(chat_id, "✅ Оплата прошла успешно! Ваш тариф активирован.")
+        else:
+            print("❌ Платёж не прошёл: статус не 'succeeded'")
+    except Exception as e:
+        print("❌ Ошибка при обработке вебхука:", e)
+        import traceback
+        traceback.print_exc()
+    return "OK", 200
+
     else:
         return "Invalid content type", 403
 
