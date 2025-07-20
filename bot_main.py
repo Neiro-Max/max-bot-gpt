@@ -332,7 +332,8 @@ def handle_prompt(message):
         if int(chat_id) != ADMIN_ID:
             bot.send_message(
                 ADMIN_ID,
-                f"📩 Сообщение от пользователя @{message.from_user.username or message.from_user.id}:\n\n{text}"
+                f"📩 Сообщение от пользователя @{message.from_user.username or message.from_user.id}:\n\n{text}"print(f"[DEBUG] Получено сообщение: {text}")
+
             )
             bot.send_message(
                 chat_id,
