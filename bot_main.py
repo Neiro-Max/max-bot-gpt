@@ -333,18 +333,20 @@ def handle_style_selection(message):
 
 @bot.message_handler(commands=["users_count"])
 def handle_users_count(message):
-    if message.chat.id != ADMIN_ID:
-        return  # доступ только админу
+    if str(message.chat.id) != str(ADMIN_ID):  # Приводим к str на всякий случай
+        return
 
     users_file = "users.json"
     if os.path.exists(users_file):
         with open(users_file, "r", encoding="utf-8") as f:
             users = json.load(f)
         count = len(users)
+        print("DEBUG: users =", users)  # Отладочный вывод
     else:
         count = 0
 
     bot.send_message(message.chat.id, f"👥 Всего пользователей: {count}")
+
 
 
 
