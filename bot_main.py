@@ -326,12 +326,18 @@ def handle_style_selection(message):
 def handle_prompt(message):
     chat_id = str(message.chat.id)
     text = message.text.strip()
-        # 📩 Автопересылка сообщений с жалобами продюсеру
+            # 📩 Автопересылка сообщений с жалобами продюсеру
     key_phrases = ["бот", "не работает", "плохо работает", "не отвечает", "поддержка", "жалоба"]
     if any(phrase in text.lower() for phrase in key_phrases):
         if int(chat_id) != ADMIN_ID:
-            bot.send_message(ADMIN_ID, f"📨 Сообщение от пользователя @{message.from_user.username or message.from_user.id}:\n\n{text}")
-                        bot.send_message(chat_id, "✅ Ваше сообщение передано в поддержку. Мы скоро ответим.")
+            bot.send_message(
+                ADMIN_ID,
+                f"📩 Сообщение от пользователя @{message.from_user.username or message.from_user.id}:\n\n{text}"
+            )
+            bot.send_message(
+                chat_id,
+                "✅ Ваше сообщение передано в поддержку. Мы скоро ответим."
+            )
 
 
 
