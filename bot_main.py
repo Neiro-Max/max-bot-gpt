@@ -26,7 +26,7 @@ TRIAL_DURATION_SECONDS = 86400  # 24 часа
 BOT_NAME = "Neiro Max"
 
 user_token_limits = {}
-user_styles = {} 
+user_modes = {}
 user_histories = {}
 user_models = {}
 trial_start_times = {}
@@ -160,13 +160,9 @@ def main_menu(chat_id=None):
     markup.add("🚀 Запустить Neiro Max")
     markup.add("💡 Сменить стиль", "📄 Тарифы")
     markup.add("📘 Правила")
-    markup.add("🆘 Поддержка")  # 👈 ДОБАВЛЕНО
-
     if chat_id and is_admin(chat_id):
         markup.add("♻️ Сброс пробника")
-
     return markup
-
 
 def style_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -212,30 +208,21 @@ def handle_start(message):
         save_used_trials(used_trials)
         bot.send_message(message.chat.id, f"Привет! Я {BOT_NAME} — твой ассистент. Чем могу помочь? 😉", reply_markup=main_menu(message.chat.id))
 
-    # 💡 Общая инициализация — выполняется для всех
+    # 💡 Общая инициализация — выполняется для всех, даже если пробник уже был
     user_modes[message.chat.id] = "копирайтер"
     user_histories[message.chat.id] = []
     user_models[message.chat.id] = "gpt-3.5-turbo"
     user_token_limits[message.chat.id] = 0
 
-
-@bot.message_handler(func=lambda message: message.text == "🚀 Запустить Neiro Max")
-def handle_launch_button(message):
-    chat_id = str(message.chat.id)
-
-    if chat_id in used_trials:
-        bot.send_message(message.chat.id, "⛔ Вы уже использовали пробный доступ.", reply_markup=main_menu(message.chat.id))
-    else:
-        used_trials[chat_id] = True
-        trial_start_times = load_trial_times()
-        save_used_trials(used_trials)
-        bot.send_message(message.chat.id, f"Привет! Я {BOT_NAME} — твой ассистент. Чем могу помочь? 😉", reply_markup=main_menu(message.chat.id))
-
-    # 💡 Общая инициализация — выполняется для всех
+    used_trials[chat_id] = True
+    trial_start_times = load_trial_times()
+    save_used_trials(used_trials)
+    bot.send_message(chat_id, f"Привет! Я {BOT_NAME} — твой ассистент. Чем могу помочь? 😉", reply_markup=main_menu(message.chat.id))
     user_modes[message.chat.id] = "копирайтер"
     user_histories[message.chat.id] = []
     user_models[message.chat.id] = "gpt-3.5-turbo"
     user_token_limits[message.chat.id] = 0
+
 
 @bot.message_handler(func=lambda msg: msg.text == "📄 Тарифы")
 def handle_tariffs(message):
@@ -334,49 +321,14 @@ def handle_style_selection(message):
 @bot.message_handler(func=lambda msg: True)
 def handle_prompt(message):
     chat_id = str(message.chat.id)
-    text = message.text.strip()
-
-    # 📩 Автопересылка сообщений с жалобами продюсеру
-    key_phrases = ["бот", "не работает", "плохо работает", "не отвечает", "поддержка", "жалоба"]
-    if any(phrase in text.lower() for phrase in key_phrases):
-        if int(chat_id) != ADMIN_ID:
-            bot.send_message(
-                ADMIN_ID,
-                f"📩 Сообщение от пользователя @{message.from_user.username or message.from_user.id}:\n\n{text}"
-            )
-            print(f"[DEBUG] Получено сообщение: {text}")
-
-            bot.send_message(
-                chat_id,
-                "✅ Ваше сообщение передано в поддержку. Мы скоро ответим."
-            )
-
-
-
-    # ✅ Получаем текущий стиль общения (по словарю)
-    current_style = user_styles.get(chat_id, "Копирайтер")
-
-    # ✅ Разрешённые фразы вне зависимости от стиля
-    allowed_general_phrases = [
-        "Главное меню", "📋 Главное меню",
-        "🆘 Поддержка",
-        "📄 Тарифы",
-        "💡 Сменить стиль",
-        "🚀 Запустить Neiro Max",
-        "/start"
-    ]
-
-    # ⚠️ Если включен стиль "Копирайтер", и текст не подходит — блокируем
-#    if current_style == "Копирайтер":
-#        if text not in allowed_general_phrases:
-#            # Простейшая проверка — пусть считается "копирайтерским", если больше 3 слов
-#            if len(text.split()) < 4:
-#                bot.send_message(chat_id, f"⚠️ Сейчас выбран стиль: *{current_style}*.\nЗапрос не соответствует выбранному стилю.\nСначала измени стиль через кнопку 💡", parse_mode="Markdown")
-#                return
 
     # 🔒 Проверка доступа (тариф/пробник)
     if not check_access_and_notify(chat_id):
         return
+
+    # ✅ Гарантируем, что старт пробника установлен
+    if chat_id not in trial_start_times:
+        trial_start_times[chat_id] = time.time()
 
 
 
@@ -468,48 +420,6 @@ def handle_file_format(call):
 
 print("🤖 Neiro Max запущен.")
 app = Flask(__name__)
-from telebot import types
-
-# === 1. Укажи свой Telegram ID (куда будет приходить поддержка)
-ADMIN_ID = 1034982624
-
-# === 2. Кнопка поддержки
-support_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-support_keyboard.add(types.KeyboardButton("🆘 Поддержка"))
-
-# === 3. Пользователь нажал "🆘 Поддержка"
-@bot.message_handler(func=lambda m: m.text == "🆘 Поддержка")
-def handle_support_button(message):
-    bot.send_message(message.chat.id, "✍️ Опишите проблему. Ваше сообщение будет отправлено в поддержку.")
-
-# === 4. Сообщение от пользователя → пересылается админу
-@bot.message_handler(func=lambda m: m.reply_to_message is None and m.chat.id != ADMIN_ID)
-def handle_user_support_message(message):
-    user = message.from_user
-    text = message.text
-    user_id = message.chat.id
-
-    # Пересылаем админу
-    support_text = f"📩 Запрос от @{user.username or 'без ника'} ({user_id}):\n{text}\n\n✏️ Чтобы ответить, напиши:\n/reply {user_id} Твой ответ"
-    bot.send_message(ADMIN_ID, support_text)
-    bot.send_message(user_id, "✅ Ваше сообщение передано в поддержку.")
-
-# === 5. Админ отвечает через /reply
-@bot.message_handler(commands=["reply"])
-def reply_to_user(message):
-    if message.chat.id != ADMIN_ID:
-        return  # только для тебя
-
-    try:
-        parts = message.text.split(maxsplit=2)
-        target_id = int(parts[1])
-        reply_text = parts[2]
-
-        bot.send_message(target_id, f"📬 Поддержка:\n{reply_text}")
-        bot.send_message(message.chat.id, "✅ Ответ отправлен.")
-    except Exception as e:
-        bot.send_message(message.chat.id, f"⚠️ Ошибка в формате команды. Используй:\n/reply <user_id> <сообщение>")
-
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -634,7 +544,4 @@ def yookassa_webhook():
 
 
 if __name__ == "__main__":
-    bot.remove_webhook()
-    bot.set_webhook(url="https://max-bot-gpt-production.up.railway.app/webhook")
-
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
