@@ -352,23 +352,24 @@ def handle_users_count(message):
 @bot.message_handler(func=lambda msg: True)
 def handle_prompt(message):
     chat_id = str(message.chat.id)
+
     # 📌 Добавляем пользователя в список, если он новый
-users_file = "users.json"
-if os.path.exists(users_file):
-    with open(users_file, "r", encoding="utf-8") as f:
-        users = json.load(f)
-else:
-    users = {}
+    users_file = "users.json"
+    if os.path.exists(users_file):
+        with open(users_file, "r", encoding="utf-8") as f:
+            users = json.load(f)
+    else:
+        users = {}
 
-if chat_id not in users:
-    users[chat_id] = {"joined": time.time()}
-    with open(users_file, "w", encoding="utf-8") as f:
-        json.dump(users, f, ensure_ascii=False, indent=2)
-
+    if chat_id not in users:
+        users[chat_id] = {"joined": time.time()}
+        with open(users_file, "w", encoding="utf-8") as f:
+            json.dump(users, f, ensure_ascii=False, indent=2)
 
     # 🔒 Проверка доступа (тариф/пробник)
     if not check_access_and_notify(chat_id):
         return
+
 
     # ✅ Гарантируем, что старт пробника установлен
     if chat_id not in trial_start_times:
