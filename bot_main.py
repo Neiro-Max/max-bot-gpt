@@ -420,6 +420,48 @@ def handle_file_format(call):
 
 print("🤖 Neiro Max запущен.")
 app = Flask(__name__)
+from telebot import types
+
+# === 1. Укажи свой Telegram ID (куда будет приходить поддержка)
+ADMIN_ID = 1034982624
+
+# === 2. Кнопка поддержки
+support_keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+support_keyboard.add(types.KeyboardButton("🆘 Поддержка"))
+
+# === 3. Пользователь нажал "🆘 Поддержка"
+@bot.message_handler(func=lambda m: m.text == "🆘 Поддержка")
+def handle_support_button(message):
+    bot.send_message(message.chat.id, "✍️ Опишите проблему. Ваше сообщение будет отправлено в поддержку.")
+
+# === 4. Сообщение от пользователя → пересылается админу
+@bot.message_handler(func=lambda m: m.reply_to_message is None and m.chat.id != ADMIN_ID)
+def handle_user_support_message(message):
+    user = message.from_user
+    text = message.text
+    user_id = message.chat.id
+
+    # Пересылаем админу
+    support_text = f"📩 Запрос от @{user.username or 'без ника'} ({user_id}):\n{text}\n\n✏️ Чтобы ответить, напиши:\n/reply {user_id} Твой ответ"
+    bot.send_message(ADMIN_ID, support_text)
+    bot.send_message(user_id, "✅ Ваше сообщение передано в поддержку.")
+
+# === 5. Админ отвечает через /reply
+@bot.message_handler(commands=["reply"])
+def reply_to_user(message):
+    if message.chat.id != ADMIN_ID:
+        return  # только для тебя
+
+    try:
+        parts = message.text.split(maxsplit=2)
+        target_id = int(parts[1])
+        reply_text = parts[2]
+
+        bot.send_message(target_id, f"📬 Поддержка:\n{reply_text}")
+        bot.send_message(message.chat.id, "✅ Ответ отправлен.")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"⚠️ Ошибка в формате команды. Используй:\n/reply <user_id> <сообщение>")
+
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
