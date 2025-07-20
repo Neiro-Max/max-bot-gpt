@@ -434,6 +434,51 @@ def webhook():
 @app.route("/yookassa/webhook", methods=["POST"])
 def yookassa_webhook():
     data = request.json
+        data = request.json
+
+    # Проверяем статус
+    if data.get("object", {}).get("status") == "succeeded":
+        description = data.get("object", {}).get("description", "")
+        payment_id = data.get("object", {}).get("id")
+
+        # Получаем chat_id из описания
+        try:
+            parts = description.split(":")
+            chat_id = int(parts[1])
+            tariff = parts[2]
+
+            # Устанавливаем модель
+            if "gpt-4" in tariff.lower():
+                user_models[str(chat_id)] = "gpt-4o"
+            else:
+                user_models[str(chat_id)] = "gpt-3.5-turbo"
+
+            # Устанавливаем срок подписки (например, 30 дней)
+            now = int(time.time())
+            subscriptions_file = "subscriptions.json"
+            if os.path.exists(subscriptions_file):
+                with open(subscriptions_file, "r", encoding="utf-8") as f:
+                    subscriptions = json.load(f)
+            else:
+                subscriptions = {}
+
+            subscriptions[str(chat_id)] = {
+                "model": user_models[str(chat_id)],
+                "activated_at": now,
+                "expires_at": now + 30 * 24 * 60 * 60,
+                "token_limit": 100000,
+                "warned": False
+            }
+
+            with open(subscriptions_file, "w", encoding="utf-8") as f:
+                json.dump(subscriptions, f, ensure_ascii=False, indent=2)
+
+            # Уведомляем пользователя
+            bot.send_message(chat_id, f"✅ Оплата прошла успешно! Вам активирован тариф: *{tariff}*", parse_mode="Markdown")
+
+        except Exception as e:
+            print(f"[webhook error] Ошибка при обработке описания: {e}")
+
     if data.get('event') == 'payment.succeeded':
         obj = data['object']
         description = obj.get("description", "")
