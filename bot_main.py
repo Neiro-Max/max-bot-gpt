@@ -2,7 +2,6 @@ import os
 import json
 import time
 from telebot import TeleBot, types
-user_ids = set()
 from pathlib import Path
 from io import BytesIO
 from docx import Document
@@ -200,19 +199,6 @@ Path(MEMORY_DIR).mkdir(exist_ok=True)
 @bot.message_handler(commands=["start"])
 def handle_start(message):
     chat_id = str(message.chat.id)
-    user_ids.add(chat_id)
-     # === Блок подсчёта пользователей ===
-    users_file = "users.json"
-    if os.path.exists(users_file):
-        with open(users_file, "r", encoding="utf-8") as f:
-            users = json.load(f)
-    else:
-        users = []
-
-    if chat_id not in users:
-        users.append(chat_id)
-        with open(users_file, "w", encoding="utf-8") as f:
-            json.dump(users, f, ensure_ascii=False, indent=4)
 
     if chat_id in used_trials:
         bot.send_message(message.chat.id, "⛔ Вы уже использовали пробный доступ.", reply_markup=main_menu(message.chat.id))
@@ -323,6 +309,7 @@ def handle_launch_neiro_max(message):
     bot.send_message(message.chat.id, "Готов к работе! Чем могу помочь?", reply_markup=main_menu(message.chat.id))
 
 
+
 @bot.message_handler(func=lambda msg: msg.text.lower() in [m.lower() for m in available_modes])
 def handle_style_selection(message):
     chat_id = str(message.chat.id)
@@ -331,48 +318,13 @@ def handle_style_selection(message):
     bot.send_message(chat_id, f"✅ Стиль общения изменён на: <b>{selected.capitalize()}</b>", parse_mode="HTML")
 
 
-@bot.message_handler(commands=["users_count"])
-def handle_users_count(message):
-    if str(message.chat.id) != str(ADMIN_ID):  # Приводим к str на всякий случай
-        return
-
-    users_file = "users.json"
-    if os.path.exists(users_file):
-        with open(users_file, "r", encoding="utf-8") as f:
-            users = json.load(f)
-        count = len(users)
-        print("DEBUG: users =", users)  # Отладочный вывод
-    else:
-        count = 0
-
-    bot.send_message(message.chat.id, f"👥 Всего пользователей: {count}")
-
-
-
-
-
 @bot.message_handler(func=lambda msg: True)
 def handle_prompt(message):
     chat_id = str(message.chat.id)
 
-    # ✅ Добавляем пользователя в users.json
-    users_file = "users.json"
-    if os.path.exists(users_file):
-        with open(users_file, "r", encoding="utf-8") as f:
-            users = json.load(f)
-    else:
-        users = {}
-
-    if chat_id not in users:
-        users[chat_id] = {"joined": time.time()}
-        with open(users_file, "w", encoding="utf-8") as f:
-            json.dump(users, f, ensure_ascii=False, indent=2)
-
     # 🔒 Проверка доступа (тариф/пробник)
     if not check_access_and_notify(chat_id):
         return
-
-
 
     # ✅ Гарантируем, что старт пробника установлен
     if chat_id not in trial_start_times:
