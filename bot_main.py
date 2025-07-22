@@ -639,16 +639,23 @@ def extract_text_from_file(file_path, file_type):
     if file_type == 'photo':
         image = Image.open(file_path)
         return pytesseract.image_to_string(image)
+
     elif file_type == 'pdf':
         text = ''
         with fitz.open(file_path) as doc:
             for page in doc:
-                text += page.get_text()
+                pix = page.get_pixmap(dpi=300)
+                img_bytes = pix.tobytes("png")
+                image = Image.open(BytesIO(img_bytes))
+                text += pytesseract.image_to_string(image) + '\n'
         return text
+
     elif file_type == 'docx':
         doc = Document(file_path)
         return '\n'.join([para.text for para in doc.paragraphs])
+
     return ''
+
 
 
 
