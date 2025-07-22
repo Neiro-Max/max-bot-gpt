@@ -287,6 +287,9 @@ def handle_document_or_photo(message):
     if chat_id != 1034982624 and not check_access_and_notify(chat_id):
         return
 
+    if chat_id not in user_docs:
+        user_docs[chat_id] = {}
+
     extracted_text = ""
 
     if message.content_type == 'photo':
@@ -311,26 +314,47 @@ def handle_document_or_photo(message):
                 f.write(downloaded_file)
 
             if os.path.exists(pdf_path):
-                extracted_text = ""  # инициализируем
                 doc = fitz.open(pdf_path)
-
                 for page in doc:
                     extracted_text += page.get_text()
-                    print("=== EXTRACTED TEXT ===")
-                    print(extracted_text)
-                    print("======================")
 
-                if extracted_text.strip():
-                    user_docs[chat_id] = extracted_text
-                    bot.send_message(chat_id, "📄 Документ распознан. Теперь напишите, что с ним сделать:\n\n"
-                                              "– Проанализировать\n"
-                                              "– Внести правки\n"
-                                              "– Составить похожий по теме и т.д.")
-                else:
-                    bot.send_message(chat_id, "❌ Не удалось распознать текст. Попробуйте отправить другой PDF-документ.")
-            else:
-                bot.send_message(chat_id, "❌ Ошибка: PDF-файл не удалось сохранить.")
-                return
+    # если удалось распознать текст
+    if extracted_text.strip():
+        user_docs[chat_id]["text"] = extracted_text
+        user_docs[chat_id]["status"] = "awaiting_action"
+
+        bot.send_message(chat_id, "📄 Документ распознан. Теперь напишите, что с ним сделать:\n\n"
+                                  "– Проанализировать\n"
+                                  "– Внести правки\n"
+                                  "– Составить похожий по теме и т.д.")
+    else:
+        bot.send_message(chat_id, "❌ Не удалось распознать текст. Попробуйте отправить другое изображение или PDF.")
+        @bot.message_handler(content_types=['text'])
+def handle_text(message):
+    chat_id = message.chat.id
+    text = message.text.strip().lower()
+
+    if chat_id in user_docs and user_docs[chat_id].get("status") == "awaiting_action":
+        extracted_text = user_docs[chat_id]["text"]
+
+        if "анализ" in text:
+            bot.send_message(chat_id, "Конечно! Пожалуйста, пришлите мне документ, который вы хотели бы проанализировать, и я с удовольствием взгляну на него и представлю вам подробный анализ.")
+            user_docs[chat_id]["status"] = "waiting_analysis_info"
+
+        elif "внести" in text or "правк" in text:
+            bot.send_message(chat_id, "Хорошо! Напишите, какие именно правки нужно внести в документ — я подготовлю обновлённую версию.")
+            user_docs[chat_id]["status"] = "waiting_edit_instructions"
+
+        elif "похож" in text or "по теме" in text:
+            bot.send_message(chat_id, "Хорошо! Напишите, на какую тему должен быть похожий документ — и я его составлю.")
+            user_docs[chat_id]["status"] = "waiting_new_doc_theme"
+
+        else:
+            bot.send_message(chat_id, "Пожалуйста, уточните, что вы хотите сделать с распознанным документом:\n\n"
+                                      "– Проанализировать\n– Внести правки\n– Составить похожий по теме")
+    else:
+        bot.send_message(chat_id, "Пожалуйста, сначала отправьте документ (фото или PDF), чтобы я мог его распознать.")
+
 
 
 
