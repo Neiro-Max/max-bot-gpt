@@ -300,37 +300,41 @@ def handle_document_or_photo(message):
         image = Image.open("temp_img.jpg")
         extracted_text = pytesseract.image_to_string(image, lang='rus+eng')
 
-elif message.content_type == 'document':
-    file_name = message.document.file_name.lower()
-    if message.document.mime_type == "application/pdf" or file_name.endswith(".pdf"):
-        file_info = bot.get_file(message.document.file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
+    elif message.content_type == 'document':
+        file_name = message.document.file_name.lower()
+        if message.document.mime_type == "application/pdf" or file_name.endswith(".pdf"):
+            file_info = bot.get_file(message.document.file_id)
+            downloaded_file = bot.download_file(file_info.file_path)
 
-        pdf_path = "temp.pdf"
-        with open(pdf_path, "wb") as f:
-            f.write(downloaded_file)
+            pdf_path = "temp.pdf"
+            with open(pdf_path, "wb") as f:
+                f.write(downloaded_file)
 
-        if os.path.exists(pdf_path):
-            extracted_text = ""  # инициализируем до начала
-            doc = fitz.open(pdf_path)
+            if os.path.exists(pdf_path):
+                extracted_text = ""  # инициализируем
+                doc = fitz.open(pdf_path)
 
-            for page in doc:
-                extracted_text += page.get_text()
-                print("=== EXTRACTED TEXT ===")
-                print(extracted_text)
-                print("======================")
+                for page in doc:
+                    extracted_text += page.get_text()
+                    print("=== EXTRACTED TEXT ===")
+                    print(extracted_text)
+                    print("======================")
 
-            if extracted_text.strip():
-                user_docs[chat_id] = extracted_text
-                bot.send_message(chat_id, "📄 Документ распознан. Теперь напишите, что с ним сделать:\n\n"
-                                          "– Проанализировать\n"
-                                          "– Внести правки\n"
-                                          "– Составить похожий по теме и т.д.")
+                if extracted_text.strip():
+                    user_docs[chat_id] = extracted_text
+                    bot.send_message(chat_id, "📄 Документ распознан. Теперь напишите, что с ним сделать:\n\n"
+                                              "– Проанализировать\n"
+                                              "– Внести правки\n"
+                                              "– Составить похожий по теме и т.д.")
+                else:
+                    bot.send_message(chat_id, "❌ Не удалось распознать текст. Попробуйте отправить другой PDF-документ.")
             else:
-                bot.send_message(chat_id, "❌ Не удалось распознать текст. Попробуйте отправить другой PDF-документ.")
-        else:
-            bot.send_message(chat_id, "❌ Ошибка: PDF-файл не удалось сохранить.")
-            return
+                bot.send_message(chat_id, "❌ Ошибка: PDF-файл не удалось сохранить.")
+                return
+
+
+
+
 
 
 
