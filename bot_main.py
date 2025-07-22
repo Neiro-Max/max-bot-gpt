@@ -18,6 +18,29 @@ from reportlab.pdfgen import canvas
 import openai
 from flask import Flask, request, jsonify
 from yookassa import Configuration, Payment
+# === ФУНКЦИЯ ИЗВЛЕЧЕНИЯ ТЕКСТА ИЗ ФАЙЛОВ ===
+def extract_text_from_file(file_path, file_type):
+    try:
+        if file_type == 'pdf':
+            reader = PdfReader(file_path)
+            text = "\n".join(page.extract_text() or "" for page in reader.pages)
+            return text.strip()
+
+        elif file_type == 'docx':
+            doc = Document(file_path)
+            return "\n".join(p.text for p in doc.paragraphs).strip()
+
+        elif file_type == 'photo':
+            image = Image.open(file_path)
+            text = pytesseract.image_to_string(image, lang='rus+eng')
+            return text.strip()
+
+        else:
+            return "⚠️ Неподдерживаемый тип файла."
+
+    except Exception as e:
+        return f"❌ Ошибка при извлечении текста: {e}"
+
 
 # === КОНФИГ ===
 YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
