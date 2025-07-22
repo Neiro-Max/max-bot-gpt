@@ -312,6 +312,10 @@ def handle_document_or_photo(message):
             doc = fitz.open("temp.pdf")
             for page in doc:
                 extracted_text += page.get_text()
+                print("=== EXTRACTED TEXT ===")
+print(extracted_text)
+print("======================")
+
 
     if extracted_text.strip():
         user_docs[chat_id] = extracted_text  # 👈 вот это добавлено
