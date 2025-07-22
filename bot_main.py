@@ -310,7 +310,7 @@ def handle_document_or_photo(message):
                 f.write(downloaded_file)
 
             doc = fitz.open("temp.pdf")
-            for page in doc:
+ for page in doc:
     extracted_text += page.get_text()
     print("=== EXTRACTED TEXT ===")
     print(extracted_text)
