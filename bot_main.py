@@ -311,21 +311,23 @@ def handle_document_or_photo(message):
                 f.write(downloaded_file)
 
             if os.path.exists(pdf_path):
+                extracted_text = ""  # инициализируем
                 doc = fitz.open(pdf_path)
+
                 for page in doc:
                     extracted_text += page.get_text()
 
-    if extracted_text.strip():
-        user_docs[chat_id] = {
-            "text": extracted_text,
-            "status": "awaiting_action"
-        }
-        bot.send_message(chat_id, "📄 Документ распознан. Теперь напишите, что с ним сделать:\n\n"
-                                  "- Проанализировать\n"
-                                  "- Внести правки\n"
-                                  "- Составить похожий по теме и т.д.")
-    else:
-        bot.send_message(chat_id, "❌ Не удалось распознать текст. Попробуйте отправить другое изображение или PDF.")
+                if extracted_text.strip():
+                    user_docs[chat_id] = extracted_text
+                    bot.send_message(chat_id, "📄 Документ распознан. Теперь напишите, что с ним сделать:\n\n"
+                                              "– Проанализировать\n"
+                                              "– Внести правки\n"
+                                              "– Составить похожий по теме и т.д.")
+                else:
+                    bot.send_message(chat_id, "❌ Не удалось распознать текст. Попробуйте отправить другой PDF-документ.")
+            else:
+                bot.send_message(chat_id, "❌ Ошибка: PDF-файл не удалось сохранить.")
+
 
 @bot.message_handler(func=lambda msg: msg.text == "📘 Правила")
 def handle_rules(message):
