@@ -269,6 +269,54 @@ def handle_change_style(message):
         markup.add(mode.capitalize())
     markup.add("📋 Главное меню")
     bot.send_message(message.chat.id, "Выбери стиль общения:", reply_markup=markup)
+import pytesseract
+from PIL import Image
+import fitz  # PyMuPDF
+
+@bot.message_handler(content_types=['document', 'photo'])
+def handle_document_or_photo(message):
+    chat_id = message.chat.id
+
+    # Проверка доступа (должна быть уже у тебя)
+    if not check_access_and_notify(chat_id):
+        return
+
+    # Объявим переменную для текста
+    extracted_text = ""
+
+    # === Если это фото ===
+    if message.content_type == 'photo':
+        file_id = message.photo[-1].file_id  # берем самое большое фото
+        file_info = bot.get_file(file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+
+        with open("temp_img.jpg", "wb") as f:
+            f.write(downloaded_file)
+
+        image = Image.open("temp_img.jpg")
+        extracted_text = pytesseract.image_to_string(image, lang='rus+eng')
+
+    # === Если это PDF ===
+    elif message.document.mime_type == 'application/pdf':
+        file_info = bot.get_file(message.document.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+
+        with open("temp.pdf", "wb") as f:
+            f.write(downloaded_file)
+
+        doc = fitz.open("temp.pdf")
+        for page in doc:
+            extracted_text += page.get_text()
+
+    # === Обработка — если текст извлечён ===
+    if extracted_text.strip():
+        bot.send_message(chat_id, "📄 Документ распознан. Теперь напишите, что с ним сделать:\n\n"
+                                  "– Проанализировать\n"
+                                  "– Внести правки\n"
+                                  "– Составить похожий по теме и т.д.")
+        # Сохраним текст куда-нибудь (например, в словарь памяти) — добавим позже
+    else:
+        bot.send_message(chat_id, "❌ Не удалось распознать текст. Попробуйте отправить другое фото или PDF.")
 
 
 @bot.message_handler(func=lambda msg: msg.text == "📘 Правила")
