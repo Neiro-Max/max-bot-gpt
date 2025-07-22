@@ -348,6 +348,8 @@ def handle_documents(message):
 
     # Извлекаем текст
     extracted_text = extract_text_from_file(temp_path, file_type)
+    print("📄 Извлечённый текст:")
+    print(extracted_text)
 
     # Формируем промпт
     prompt = f"Вот содержимое документа:\n\n{extracted_text}\n\nТеперь: {user_input or 'проанализируй документ'}"
