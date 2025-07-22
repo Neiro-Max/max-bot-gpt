@@ -645,7 +645,8 @@ def extract_text_from_file(file_path, file_type):
         if file_type == 'photo':
             print("🖼 Распознаём фото через OCR")
             image = Image.open(file_path)
-            return pytesseract.image_to_string(image)
+            return pytesseract.image_to_string(image, lang='rus')
+
 
         elif file_type == 'pdf':
             print("📄 PDF срабатывает, включён OCR")
@@ -656,7 +657,8 @@ def extract_text_from_file(file_path, file_type):
                     pix = page.get_pixmap(dpi=300)
                     img_bytes = pix.tobytes("png")
                     image = Image.open(BytesIO(img_bytes))
-                    page_text = pytesseract.image_to_string(image)
+                    page_text = pytesseract.image_to_string(image, lang='rus')
+
                     print(f"Текст со страницы {page_num+1}:\n{page_text[:100]}")
                     text += page_text + '\n'
             return text
