@@ -6,3 +6,5 @@ flask
 PyMuPDF
 docx
 yookassa
+pytesseract
+Pillow
