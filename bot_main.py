@@ -310,14 +310,20 @@ def handle_document_or_photo(message):
                 f.write(downloaded_file)
 
             doc = fitz.open("temp.pdf")
- for page in doc:
+ # === Инициализация переменной для текста ===
+extracted_text = ""
+
+# === Обработка PDF ===
+doc = fitz.open("temp.pdf")
+
+for page in doc:
     extracted_text += page.get_text()
     print("=== EXTRACTED TEXT ===")
     print(extracted_text)
     print("======================")
 
 if extracted_text.strip():
-    user_docs[chat_id] = extracted_text  # 👈 сохраняем в память
+    user_docs[chat_id] = extracted_text  # сохраняем в память
     bot.send_message(chat_id, "📄 Документ распознан. Теперь напишите, что с ним сделать:\n\n"
                               "– Проанализировать\n"
                               "– Внести правки\n"
