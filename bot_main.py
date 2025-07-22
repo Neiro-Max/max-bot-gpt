@@ -15,8 +15,6 @@ YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
 YOOKASSA_SECRET_KEY = os.getenv("YOOKASSA_SECRET_KEY")
 Configuration.account_id = YOOKASSA_SHOP_ID
 Configuration.secret_key = YOOKASSA_SECRET_KEY
-user_docs = {}  # Временное хранилище текста распознанных документов
-
 
 USED_TRIALS_FILE = "used_trials.json"
 TRIAL_TIMES_FILE = "trial_times.json"
@@ -34,9 +32,6 @@ user_models = {}
 trial_start_times = {}
 # ✅ Блок проверки подписки и пробника
 def check_access_and_notify(chat_id):
-    if chat_id == 1034982624:
-        return True  # ✅ Временно разрешаем себе без ограничений
-
     now = time.time()
     tokens_used = user_token_limits.get(chat_id, 0)
 
@@ -50,8 +45,6 @@ def check_access_and_notify(chat_id):
             # ЖЁСТКАЯ БЛОКИРОВКА
             bot.send_message(chat_id, "⛔ Пробный период завершён. Для продолжения выберите тариф.")
             return False
-
-    return True
 
     # === Проверка оплаченного тарифа ===
     subscription_file = "subscriptions.json"
@@ -276,57 +269,6 @@ def handle_change_style(message):
         markup.add(mode.capitalize())
     markup.add("📋 Главное меню")
     bot.send_message(message.chat.id, "Выбери стиль общения:", reply_markup=markup)
-import pytesseract
-from PIL import Image
-import fitz  # PyMuPDF
-
-@bot.message_handler(content_types=['document', 'photo'])
-def handle_document_or_photo(message):
-    chat_id = message.chat.id
-
-    if chat_id != 1034982624 and not check_access_and_notify(chat_id):
-        return
-
-    extracted_text = ""
-
-    if message.content_type == 'photo':
-        file_id = message.photo[-1].file_id
-        file_info = bot.get_file(file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-
-        with open("temp_img.jpg", "wb") as f:
-            f.write(downloaded_file)
-
-        image = Image.open("temp_img.jpg")
-        extracted_text = pytesseract.image_to_string(image, lang='rus+eng')
-
-    elif message.content_type == 'document':
-        file_name = message.document.file_name.lower()
-        if message.document.mime_type == "application/pdf" or file_name.endswith(".pdf"):
-            file_info = bot.get_file(message.document.file_id)
-            downloaded_file = bot.download_file(file_info.file_path)
-
-            pdf_path = "temp.pdf"
-            with open(pdf_path, "wb") as f:
-                f.write(downloaded_file)
-
-            if os.path.exists(pdf_path):
-                extracted_text = ""  # инициализируем
-                doc = fitz.open(pdf_path)
-
-                for page in doc:
-                    extracted_text += page.get_text()
-
-                if extracted_text.strip():
-                    user_docs[chat_id] = extracted_text
-                    bot.send_message(chat_id, "📄 Документ распознан. Теперь напишите, что с ним сделать:\n\n"
-                                              "– Проанализировать\n"
-                                              "– Внести правки\n"
-                                              "– Составить похожий по теме и т.д.")
-                else:
-                    bot.send_message(chat_id, "❌ Не удалось распознать текст. Попробуйте отправить другой PDF-документ.")
-            else:
-                bot.send_message(chat_id, "❌ Ошибка: PDF-файл не удалось сохранить.")
 
 
 @bot.message_handler(func=lambda msg: msg.text == "📘 Правила")
@@ -402,12 +344,12 @@ def handle_launch(message):
 
 
 @bot.message_handler(func=lambda msg: True)
-def handle_text_commands(message):
-    chat_id = message.chat.id
+def handle_prompt(message):
+    chat_id = str(message.chat.id)
 
-    if chat_id != 1034982624 and not check_access_and_notify(chat_id):
+    # 🔒 Проверка доступа (тариф/пробник)
+    if not check_access_and_notify(chat_id):
         return
-
 
     # ✅ Гарантируем, что старт пробника установлен
     if chat_id not in trial_start_times:
