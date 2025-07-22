@@ -5,6 +5,10 @@ from telebot import TeleBot, types
 from pathlib import Path
 from io import BytesIO
 from docx import Document
+import pytesseract
+from PIL import Image
+import fitz  # PyMuPDF
+
 from reportlab.pdfgen import canvas
 import openai
 from flask import Flask, request, jsonify
