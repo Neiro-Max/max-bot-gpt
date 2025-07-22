@@ -319,6 +319,43 @@ def handle_support(message):
         "Email: support@neiro-max.ai",
         parse_mode="HTML"
     )
+@bot.message_handler(content_types=['document', 'photo'])
+def handle_documents(message):
+    chat_id = message.chat.id
+    user_input = message.caption or message.text or ""
+
+    # Получаем файл
+    file_info = bot.get_file(
+        message.document.file_id if message.document else message.photo[-1].file_id
+    )
+    downloaded_file = bot.download_file(file_info.file_path)
+    filename = file_info.file_path.split('/')[-1]
+
+    # Временное сохранение
+    temp_path = f"temp_{filename}"
+    with open(temp_path, 'wb') as new_file:
+        new_file.write(downloaded_file)
+
+    # Определение типа
+    if filename.lower().endswith('.pdf'):
+        file_type = 'pdf'
+    elif filename.lower().endswith('.docx'):
+        file_type = 'docx'
+    else:
+        file_type = 'photo'
+
+    # Извлекаем текст
+    extracted_text = extract_text_from_file(temp_path, file_type)
+
+    # Формируем промпт
+    prompt = f"Вот содержимое документа:\n\n{extracted_text}\n\nТеперь: {user_input or 'проанализируй документ'}"
+
+    # GPT-ответ
+    gpt_reply = ask_gpt(prompt)
+    bot.send_message(chat_id, gpt_reply)
+
+    # Чистим
+    os.remove(temp_path)
 
 
 
@@ -570,6 +607,22 @@ def yookassa_webhook():
         return jsonify({"status": "ok"})
 
     return jsonify({"status": "ignored"})
+    
+    def extract_text_from_file(file_path, file_type):
+    if file_type == 'photo':
+        image = Image.open(file_path)
+        return pytesseract.image_to_string(image)
+    elif file_type == 'pdf':
+        text = ''
+        with fitz.open(file_path) as doc:
+            for page in doc:
+                text += page.get_text()
+        return text
+    elif file_type == 'docx':
+        doc = Document(file_path)
+        return '\n'.join([para.text for para in doc.paragraphs])
+    return ''
+
 
 
 if __name__ == "__main__":
