@@ -36,6 +36,9 @@ user_models = {}
 trial_start_times = {}
 # ✅ Блок проверки подписки и пробника
 def check_access_and_notify(chat_id):
+    # 🔓 Временный доступ к GPT-4o для Сергея
+    if chat_id == 1034982624:
+        return "gpt-4o"
     now = time.time()
     tokens_used = user_token_limits.get(chat_id, 0)
 
@@ -355,7 +358,8 @@ def handle_documents(message):
     prompt = f"Вот содержимое документа:\n\n{extracted_text}\n\nТеперь: {user_input or 'проанализируй документ'}"
 
     # GPT-ответ
-    gpt_reply = ask_gpt(prompt)
+    gpt_reply = ask_gpt(prompt, chat_id)
+
     bot.send_message(chat_id, gpt_reply)
 
     # Чистим
@@ -611,9 +615,11 @@ def yookassa_webhook():
         return jsonify({"status": "ok"})
 
     return jsonify({"status": "ignored"})
-def ask_gpt(prompt):
+def ask_gpt(prompt, chat_id):
+    model = check_access_and_notify(chat_id)
+
     response = openai.ChatCompletion.create(
-        model="gpt-4o",
+        model=model,
         messages=[
             {
                 "role": "system",
@@ -626,6 +632,7 @@ def ask_gpt(prompt):
         ]
     )
     return response['choices'][0]['message']['content']
+
 
     
 def extract_text_from_file(file_path, file_type):
