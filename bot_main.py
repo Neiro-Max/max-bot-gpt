@@ -608,7 +608,7 @@ def yookassa_webhook():
 
     return jsonify({"status": "ignored"})
     
-    def extract_text_from_file(file_path, file_type):
+def extract_text_from_file(file_path, file_type):
     if file_type == 'photo':
         image = Image.open(file_path)
         return pytesseract.image_to_string(image)
