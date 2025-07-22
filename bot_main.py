@@ -609,6 +609,22 @@ def yookassa_webhook():
         return jsonify({"status": "ok"})
 
     return jsonify({"status": "ignored"})
+def ask_gpt(prompt):
+    response = openai.ChatCompletion.create(
+        model="gpt-4o",
+        messages=[
+            {
+                "role": "system",
+                "content": "Ты — опытный юрист. Анализируй документы, объясняй риски, оценивай формулировки, составляй похожие документы."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+    )
+    return response['choices'][0]['message']['content']
+
     
 def extract_text_from_file(file_path, file_type):
     if file_type == 'photo':
