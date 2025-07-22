@@ -300,7 +300,7 @@ def handle_document_or_photo(message):
         image = Image.open("temp_img.jpg")
         extracted_text = pytesseract.image_to_string(image, lang='rus+eng')
 
-    elif message.content_type == 'document':
+elif message.content_type == 'document':
     file_name = message.document.file_name.lower()
     if message.document.mime_type == "application/pdf" or file_name.endswith(".pdf"):
         file_info = bot.get_file(message.document.file_id)
