@@ -34,6 +34,9 @@ user_models = {}
 trial_start_times = {}
 # ✅ Блок проверки подписки и пробника
 def check_access_and_notify(chat_id):
+    if chat_id == 1034982624:
+        return True  # ✅ Временно разрешаем себе без ограничений
+
     now = time.time()
     tokens_used = user_token_limits.get(chat_id, 0)
 
@@ -47,6 +50,8 @@ def check_access_and_notify(chat_id):
             # ЖЁСТКАЯ БЛОКИРОВКА
             bot.send_message(chat_id, "⛔ Пробный период завершён. Для продолжения выберите тариф.")
             return False
+
+    return True
 
     # === Проверка оплаченного тарифа ===
     subscription_file = "subscriptions.json"
