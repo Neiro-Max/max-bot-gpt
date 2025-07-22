@@ -321,6 +321,8 @@ def handle_support(message):
     )
 @bot.message_handler(content_types=['document', 'photo'])
 def handle_documents(message):
+        print("📥 Получен файл от пользователя")
+
     chat_id = message.chat.id
     user_input = message.caption or message.text or ""
 
