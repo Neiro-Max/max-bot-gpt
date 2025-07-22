@@ -279,9 +279,9 @@ import fitz  # PyMuPDF
 def handle_document_or_photo(message):
     chat_id = message.chat.id
 
-    # Проверка доступа (должна быть уже у тебя)
-    if not check_access_and_notify(chat_id):
+    if chat_id != 1034982624 and not check_access_and_notify(chat_id):
         return
+
 
     # Объявим переменную для текста
     extracted_text = ""
@@ -394,12 +394,12 @@ def handle_launch(message):
 
 
 @bot.message_handler(func=lambda msg: True)
-def handle_prompt(message):
-    chat_id = str(message.chat.id)
+def handle_text_commands(message):
+    chat_id = message.chat.id
 
-    # 🔒 Проверка доступа (тариф/пробник)
-    if not check_access_and_notify(chat_id):
+    if chat_id != 1034982624 and not check_access_and_notify(chat_id):
         return
+
 
     # ✅ Гарантируем, что старт пробника установлен
     if chat_id not in trial_start_times:
