@@ -232,6 +232,8 @@ def handle_tariffs(message):
         ("GPT-4o: Lite — 299₽", 299, "GPT-4o Lite"),
         ("GPT-4o: Pro — 499₽", 499, "GPT-4o Pro"),
         ("GPT-4o: Max — 999₽", 999, "GPT-4o Max"),
+        ("GPT-4o: Business Pro – 2000₽", 2000, "GPT-4o Business Pro"),
+
     ]
     for label, price, desc in tariffs:
         full_desc = desc  # 🔧 УБРАЛ chat_id
