@@ -6,6 +6,17 @@ from pathlib import Path
 from io import BytesIO
 from docx import Document
 import pytesseract
+# Указание пути к tesseract.exe (обязательно!)
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+# 🔍 Тест распознавания текста (OCR)
+from PIL import Image
+
+image = Image.open("test.png")  # сюда подставь путь к своему изображению с текстом
+text = pytesseract.image_to_string(image, lang='eng')  # 'eng' — если текст на английском; замени на 'rus' для русского
+
+print("Распознанный текст:")
+print(text)
+
 from PIL import Image
 import fitz  # PyMuPDF
 
