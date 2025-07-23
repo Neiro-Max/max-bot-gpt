@@ -1,9 +1,10 @@
 # 1. Базовый образ Python
 FROM python:3.11-slim
 
-# 2. Установка системных утилит для OCR
+# 2. Установка системных утилит для OCR и русской языковой модели
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
+    tesseract-ocr-rus \            # <--- ВСТАВЛЕНО СЮДА
     poppler-utils \
     libglib2.0-0 \
     libsm6 \
@@ -16,7 +17,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 4. Копируем весь проект внутрь контейнера
-COPY . /app
+COPY ./app /app
 WORKDIR /app
 
 # 5. Запуск бота
