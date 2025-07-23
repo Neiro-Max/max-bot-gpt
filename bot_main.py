@@ -230,22 +230,39 @@ def handle_ocr_file(message):
         downloaded_file = bot.download_file(file_info.file_path)
 
         from io import BytesIO
+        import cv2
+        import numpy as np
+
         file_bytes = BytesIO(downloaded_file)
         text = ''
-        custom_config = r'--oem 3 --psm 6 -l rus+eng'
 
+        # PDF → список изображений
         if message.document and message.document.mime_type == 'application/pdf':
+            from pdf2image import convert_from_bytes
             images = convert_from_bytes(file_bytes.read(), dpi=300)
-            for img in images:
-                text += pytesseract.image_to_string(img, config=custom_config)
         else:
-            img = Image.open(file_bytes)
-            text = pytesseract.image_to_string(img, config=custom_config)
+            from PIL import Image
+            images = [Image.open(file_bytes)]
 
-        text = text.strip() or '🧐 Не удалось распознать текст. Попробуй загрузить более чёткое изображение.'
-        bot.send_message(message.chat.id, f'📄 Распознанный текст:\n\n{text[:4000]}')
+        for img in images:
+            # Конвертируем PIL → OpenCV для обработки
+            img_cv = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+
+            # Увеличим резкость и контрастность
+            img_gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
+            img_denoised = cv2.fastNlMeansDenoising(img_gray, None, 30, 7, 21)
+            _, img_thresh = cv2.threshold(img_denoised, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+            # OCR
+            text += pytesseract.image_to_string(img_thresh, lang='rus+eng')
+
+        # Ограничим до 4000 символов
+        clean_text = text.strip() or '🧐 Не удалось распознать текст. Попробуй загрузить более чёткое изображение.'
+        bot.send_message(message.chat.id, f'📄 Распознанный текст:\n\n{clean_text[:4000]}')
+
     except Exception as e:
         bot.send_message(message.chat.id, f'❌ Ошибка при обработке файла:\n{e}')
+
 
 
 @bot.message_handler(func=lambda msg: msg.text == "📄 Тарифы")
