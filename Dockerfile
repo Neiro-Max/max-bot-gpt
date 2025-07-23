@@ -1,11 +1,11 @@
 # 1. Базовый образ Python
 FROM python:3.11
 
-# 2. Установка системных утилит для OCR и языковых моделей (русский + английский)
+# 2. Установка системных утилит для OCR с поддержкой русского и английского языков
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     tesseract-ocr-rus \
-    tesseract-ocr-eng \             # ← добавлено для распознавания англ. текста
+    tesseract-ocr-eng \
     poppler-utils \
     libglib2.0-0 \
     libsm6 \
