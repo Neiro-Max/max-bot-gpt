@@ -2,10 +2,12 @@
 import os
 import json
 import time
-from PIL import Image
-from telebot import TeleBot, types
 from pathlib import Path
 from io import BytesIO
+
+from PIL import Image, ImageEnhance, ImageFilter, ImageOps
+import pytesseract
+from telebot import TeleBot, types
 from docx import Document
 from reportlab.pdfgen import canvas
 import openai
@@ -17,6 +19,22 @@ YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
 YOOKASSA_SECRET_KEY = os.getenv("YOOKASSA_SECRET_KEY")
 Configuration.account_id = YOOKASSA_SHOP_ID
 Configuration.secret_key = YOOKASSA_SECRET_KEY
+def preprocess_image_for_ocr(image: Image.Image) -> Image.Image:
+    # Перевод в оттенки серого
+    gray = image.convert('L')
+
+    # Усиление контраста
+    enhancer = ImageEnhance.Contrast(gray)
+    gray = enhancer.enhance(2.0)
+
+    # Чистим шум
+    gray = gray.filter(ImageFilter.MedianFilter(size=3))
+
+    # Бинаризация (черно-белое изображение)
+    bw = gray.point(lambda x: 0 if x < 140 else 255, '1')
+
+    return bw
+
 
 USED_TRIALS_FILE = "used_trials.json"
 TRIAL_TIMES_FILE = "trial_times.json"
@@ -241,18 +259,17 @@ def handle_ocr_file(message):
 
         for img in images:
             # Предобработка изображения
-            img = img.convert('L')  # в ч/б
-            img = img.point(lambda x: 0 if x < 140 else 255, '1')  # бинаризация
-            img = img.filter(ImageFilter.MedianFilter())  # шумоподавление
+            processed_img = preprocess_image_for_ocr(img)
 
             # OCR
-            text += pytesseract.image_to_string(img, lang='rus+eng') + '\n'
+            text += pytesseract.image_to_string(processed_img, lang='rus+eng') + '\n'
 
         text = text.strip()
         if not text:
             text = '🧐 Не удалось распознать текст. Загрузите более чёткое изображение или PDF.'
 
         bot.send_message(message.chat.id, f'📄 Распознанный текст:\n\n{text[:4000]}')
+
     except Exception as e:
         bot.send_message(message.chat.id, f'❌ Ошибка при обработке файла:\n{e}')
 
