@@ -5,42 +5,10 @@ from telebot import TeleBot, types
 from pathlib import Path
 from io import BytesIO
 from docx import Document
-import pytesseract
-# Указание пути к tesseract.exe (обязательно!)
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-# 🔍 Тест распознавания текста (OCR)
-
-
-from PIL import Image
-import fitz  # PyMuPDF
-
 from reportlab.pdfgen import canvas
 import openai
 from flask import Flask, request, jsonify
 from yookassa import Configuration, Payment
-# === ФУНКЦИЯ ИЗВЛЕЧЕНИЯ ТЕКСТА ИЗ ФАЙЛОВ ===
-def extract_text_from_file(file_path, file_type):
-    try:
-        if file_type == 'pdf':
-            reader = PdfReader(file_path)
-            text = "\n".join(page.extract_text() or "" for page in reader.pages)
-            return text.strip()
-
-        elif file_type == 'docx':
-            doc = Document(file_path)
-            return "\n".join(p.text for p in doc.paragraphs).strip()
-
-        elif file_type == 'photo':
-            image = Image.open(file_path)
-            text = pytesseract.image_to_string(image, lang='rus+eng')
-            return text.strip()
-
-        else:
-            return "⚠️ Неподдерживаемый тип файла."
-
-    except Exception as e:
-        return f"❌ Ошибка при извлечении текста: {e}"
-
 
 # === КОНФИГ ===
 YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
@@ -64,9 +32,6 @@ user_models = {}
 trial_start_times = {}
 # ✅ Блок проверки подписки и пробника
 def check_access_and_notify(chat_id):
-    # 🔓 Временный доступ к GPT-4o для Сергея
-    if chat_id == 1034982624:
-        return "gpt-4o"
     now = time.time()
     tokens_used = user_token_limits.get(chat_id, 0)
 
@@ -252,6 +217,34 @@ def handle_start(message):
         f"Привет! Я {BOT_NAME} — твой AI-ассистент 🤖\n\nНажми кнопку «🚀 Запустить Neiro Max» ниже, чтобы начать.",
         reply_markup=main_menu(message.chat.id)
     )
+    from PIL import Image
+from pdf2image import convert_from_bytes
+import pytesseract
+
+@bot.message_handler(content_types=['document', 'photo'])
+def handle_ocr_file(message):
+    try:
+        file_id = message.document.file_id if message.content_type == 'document' else message.photo[-1].file_id
+        file_info = bot.get_file(file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+
+        from io import BytesIO
+        file_bytes = BytesIO(downloaded_file)
+        text = ''
+
+        if message.document and message.document.mime_type == 'application/pdf':
+            images = convert_from_bytes(file_bytes.read())
+            for img in images:
+                text += pytesseract.image_to_string(img, lang='rus+eng')
+        else:
+            img = Image.open(file_bytes)
+            text = pytesseract.image_to_string(img, lang='rus+eng')
+
+        text = text.strip() or '🧐 Не удалось распознать текст. Попробуй загрузить более чёткое изображение.'
+        bot.send_message(message.chat.id, f'📄 Распознанный текст:\n\n{text[:4000]}')  # максимум, что позволяет Telegram
+    except Exception as e:
+        bot.send_message(message.chat.id, f'❌ Ошибка при обработке файла:\n{e}')
+
 
 
 
@@ -350,48 +343,6 @@ def handle_support(message):
         "Email: support@neiro-max.ai",
         parse_mode="HTML"
     )
-@bot.message_handler(content_types=['document', 'photo'])
-def handle_documents(message):
-    print("📥 Получен файл от пользователя")
-
-    chat_id = message.chat.id
-    user_input = message.caption or message.text or ""
-
-    # Получаем файл
-    file_info = bot.get_file(
-        message.document.file_id if message.document else message.photo[-1].file_id
-    )
-    downloaded_file = bot.download_file(file_info.file_path)
-    filename = file_info.file_path.split('/')[-1]
-
-    # Временное сохранение
-    temp_path = f"temp_{filename}"
-    with open(temp_path, 'wb') as new_file:
-        new_file.write(downloaded_file)
-
-    # Определение типа
-    if filename.lower().endswith('.pdf'):
-        file_type = 'pdf'
-    elif filename.lower().endswith('.docx'):
-        file_type = 'docx'
-    else:
-        file_type = 'photo'
-
-    # Извлекаем текст
-    extracted_text = extract_text_from_file(temp_path, file_type)
-    print("📄 Извлечённый текст:")
-    print(extracted_text)
-
-    # Формируем промпт
-    prompt = f"Вот содержимое документа:\n\n{extracted_text}\n\nТеперь: {user_input or 'проанализируй документ'}"
-
-    # GPT-ответ
-    gpt_reply = ask_gpt(prompt, chat_id)
-
-    bot.send_message(chat_id, gpt_reply)
-
-    # Чистим
-    os.remove(temp_path)
 
 
 
@@ -643,60 +594,6 @@ def yookassa_webhook():
         return jsonify({"status": "ok"})
 
     return jsonify({"status": "ignored"})
-def ask_gpt(prompt, chat_id):
-    model = check_access_and_notify(chat_id)
-
-    response = openai.ChatCompletion.create(
-        model=model,
-        messages=[
-            {
-                "role": "system",
-                "content": "Ты — опытный юрист. Анализируй документы, объясняй риски, оценивай формулировки, составляй похожие документы."
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
-    )
-    return response['choices'][0]['message']['content']
-
-
-    
-def extract_text_from_file(file_path, file_type):
-    try:
-        if file_type == 'photo':
-            print("🖼 Распознаём фото через OCR")
-            image = Image.open(file_path)
-            return pytesseract.image_to_string(image, lang='rus')
-
-
-        elif file_type == 'pdf':
-            print("📄 PDF срабатывает, включён OCR")
-            text = ''
-            with fitz.open(file_path) as doc:
-                for page_num, page in enumerate(doc):
-                    print(f" → Страница {page_num+1}")
-                    pix = page.get_pixmap(dpi=300)
-                    img_bytes = pix.tobytes("png")
-                    image = Image.open(BytesIO(img_bytes))
-                    page_text = pytesseract.image_to_string(image, lang='rus')
-
-                    print(f"Текст со страницы {page_num+1}:\n{page_text[:100]}")
-                    text += page_text + '\n'
-            return text
-
-        elif file_type == 'docx':
-            print("📄 DOCX обрабатывается")
-            doc = Document(file_path)
-            return '\n'.join([para.text for para in doc.paragraphs])
-
-    except Exception as e:
-        print("❌ Ошибка при извлечении текста:", e)
-        return ''
-
-
-
 
 
 if __name__ == "__main__":
