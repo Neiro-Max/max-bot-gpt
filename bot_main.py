@@ -2,6 +2,7 @@
 import os
 import json
 import time
+from PIL import Image
 from telebot import TeleBot, types
 from pathlib import Path
 from io import BytesIO
@@ -218,7 +219,6 @@ def handle_start(message):
         reply_markup=main_menu(message.chat.id)
     )
 
-    from PIL import Image
 from pdf2image import convert_from_bytes
 import pytesseract
 
