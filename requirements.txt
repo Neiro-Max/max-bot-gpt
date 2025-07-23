@@ -8,3 +8,4 @@ docx
 yookassa
 pytesseract
 Pillow
+pdf2image
