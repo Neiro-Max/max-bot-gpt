@@ -203,24 +203,20 @@ def handle_start(message):
     # Минимальная инициализация
     user_modes[message.chat.id] = "копирайтер"
     user_histories[message.chat.id] = []
-if message.chat.id == ADMIN_ID:
-    user_models[message.chat.id] = "gpt-4o"
-else:
-    user_models[message.chat.id] = "gpt-3.5-turbo"
+
+    if message.chat.id == ADMIN_ID:
+        user_models[message.chat.id] = "gpt-4o"
+    else:
+        user_models[message.chat.id] = "gpt-3.5-turbo"
 
     user_token_limits[message.chat.id] = 0
 
-    # Активируем пробник, если ещё не использовался
-    if chat_id not in used_trials:
-        used_trials[chat_id] = True
-        save_used_trials(used_trials)
-
-    # Мягкое приветствие без лишнего
     bot.send_message(
         message.chat.id,
         f"Привет! Я {BOT_NAME} — твой AI-ассистент 🤖\n\nНажми кнопку «🚀 Запустить Neiro Max» ниже, чтобы начать.",
         reply_markup=main_menu(message.chat.id)
     )
+
     from PIL import Image
 from pdf2image import convert_from_bytes
 import pytesseract
