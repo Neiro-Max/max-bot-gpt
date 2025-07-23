@@ -1,3 +1,4 @@
+
 import os
 import json
 import time
@@ -233,7 +234,8 @@ def handle_ocr_file(message):
         text = ''
 
         if message.document and message.document.mime_type == 'application/pdf':
-            images = convert_from_bytes(file_bytes.read())
+            images = convert_from_bytes(file_bytes.read(), dpi=300)
+
             for img in images:
                 text += pytesseract.image_to_string(img, lang='rus+eng')
         else:
