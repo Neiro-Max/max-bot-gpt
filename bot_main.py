@@ -203,7 +203,11 @@ def handle_start(message):
     # Минимальная инициализация
     user_modes[message.chat.id] = "копирайтер"
     user_histories[message.chat.id] = []
+    if message.chat.id == ADMIN_ID:
+    user_models[message.chat.id] = "gpt-4o"
+else:
     user_models[message.chat.id] = "gpt-3.5-turbo"
+
     user_token_limits[message.chat.id] = 0
 
     # Активируем пробник, если ещё не использовался
