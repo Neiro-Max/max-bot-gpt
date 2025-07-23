@@ -231,10 +231,10 @@ def handle_ocr_file(message):
 
         from io import BytesIO
         file_bytes = BytesIO(downloaded_file)
-        text = ''
 
         if message.document and message.document.mime_type == 'application/pdf':
             images = convert_from_bytes(file_bytes.read(), dpi=300)
+            text = ""  # ← обязательно инициализируем до цикла
 
             for img in images:
                 text += pytesseract.image_to_string(img, lang='rus+eng')
@@ -244,6 +244,7 @@ def handle_ocr_file(message):
 
         text = text.strip() or '🧐 Не удалось распознать текст. Попробуй загрузить более чёткое изображение.'
         bot.send_message(message.chat.id, f'📄 Распознанный текст:\n\n{text[:4000]}')  # максимум, что позволяет Telegram
+
     except Exception as e:
         bot.send_message(message.chat.id, f'❌ Ошибка при обработке файла:\n{e}')
 
