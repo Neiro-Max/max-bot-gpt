@@ -219,8 +219,10 @@ def handle_start(message):
         reply_markup=main_menu(message.chat.id)
     )
 
+from PIL import Image, ImageEnhance, ImageFilter
 from pdf2image import convert_from_bytes
 import pytesseract
+from io import BytesIO
 
 @bot.message_handler(content_types=['document', 'photo'])
 def handle_ocr_file(message):
@@ -228,40 +230,32 @@ def handle_ocr_file(message):
         file_id = message.document.file_id if message.content_type == 'document' else message.photo[-1].file_id
         file_info = bot.get_file(file_id)
         downloaded_file = bot.download_file(file_info.file_path)
-
-        from io import BytesIO
-        import cv2
-        import numpy as np
-
         file_bytes = BytesIO(downloaded_file)
-        text = ''
 
-        # PDF → список изображений
-        if message.document and message.document.mime_type == 'application/pdf':
-            from pdf2image import convert_from_bytes
+        text = ''
+        if message.content_type == 'document' and message.document.mime_type == 'application/pdf':
             images = convert_from_bytes(file_bytes.read(), dpi=300)
         else:
-            from PIL import Image
-            images = [Image.open(file_bytes)]
+            img = Image.open(file_bytes)
+            images = [img]
 
         for img in images:
-            # Конвертируем PIL → OpenCV для обработки
-            img_cv = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
-
-            # Увеличим резкость и контрастность
-            img_gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
-            img_denoised = cv2.fastNlMeansDenoising(img_gray, None, 30, 7, 21)
-            _, img_thresh = cv2.threshold(img_denoised, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            # Предобработка изображения
+            img = img.convert('L')  # в ч/б
+            img = img.point(lambda x: 0 if x < 140 else 255, '1')  # бинаризация
+            img = img.filter(ImageFilter.MedianFilter())  # шумоподавление
 
             # OCR
-            text += pytesseract.image_to_string(img_thresh, lang='rus+eng')
+            text += pytesseract.image_to_string(img, lang='rus+eng') + '\n'
 
-        # Ограничим до 4000 символов
-        clean_text = text.strip() or '🧐 Не удалось распознать текст. Попробуй загрузить более чёткое изображение.'
-        bot.send_message(message.chat.id, f'📄 Распознанный текст:\n\n{clean_text[:4000]}')
+        text = text.strip()
+        if not text:
+            text = '🧐 Не удалось распознать текст. Загрузите более чёткое изображение или PDF.'
 
+        bot.send_message(message.chat.id, f'📄 Распознанный текст:\n\n{text[:4000]}')
     except Exception as e:
         bot.send_message(message.chat.id, f'❌ Ошибка при обработке файла:\n{e}')
+
 
 
 
