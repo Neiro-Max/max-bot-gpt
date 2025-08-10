@@ -211,6 +211,39 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
 bot = TeleBot(TELEGRAM_TOKEN)
+# === Business Pro (проверка тарифа + UI) ===
+def is_business_pro_active(chat_id: int) -> bool:
+    """
+    True, если у чата активирован Business Pro.
+    Пытаемся вызвать твою функцию получения тарифа; если её нет — False.
+    """
+    try:
+        return get_active_tier_for_chat(chat_id) == BUSINESS_PRO_TIER  # <-- твоя функция, позже подтвердим имя
+    except Exception:
+        return False
+
+def notify_business_pro_activated(chat_id: int):
+    """Сообщение после активации тарифа + кнопка в инлайне."""
+    kb = types.InlineKeyboardMarkup()
+    kb.add(types.InlineKeyboardButton("📂 Business Pro", callback_data=CB_BP_MENU))
+    bot.send_message(
+        chat_id,
+        "✅ Ваш тариф: GPT-4o Business Pro активирован\n"
+        "Теперь доступны расширенные функции для работы с документами, фото и Excel.",
+        reply_markup=kb,
+    )
+
+def send_bp_menu(chat_id: int):
+    """Инлайн-меню Business Pro (пока без обработчиков функций — добавим на Шаге 2)."""
+    kb = types.InlineKeyboardMarkup(row_width=1)
+    kb.add(
+        types.InlineKeyboardButton("📄 Анализ документа", callback_data=CB_BP_DOC_ANALYZE),
+        types.InlineKeyboardButton("🖼️ OCR / разбор фото", callback_data=CB_BP_OCR_IMAGE),
+        types.InlineKeyboardButton("📊 Excel-ассистент", callback_data=CB_BP_EXCEL),
+        types.InlineKeyboardButton("📝 Сгенерировать документ", callback_data=CB_BP_GEN_DOC),
+    )
+    bot.send_message(chat_id, "Выберите функцию Business Pro:", reply_markup=kb)
+
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 if WEBHOOK_URL:
     bot.remove_webhook()
@@ -218,6 +251,16 @@ if WEBHOOK_URL:
 Path(MEMORY_DIR).mkdir(exist_ok=True)
 # ===== Business Pro: каркас меню /bp =====
 from telebot import types
+# === Business Pro (константы/колбэки) ===
+BUSINESS_PRO_TIER = "business_pro"
+BUSINESS_PRO_MODEL = "gpt-4o"  # жёстко закреплённая модель
+
+CB_BP_MENU = "bp_menu"
+CB_BP_DOC_ANALYZE = "bp_doc_analyze"
+CB_BP_OCR_IMAGE = "bp_ocr_image"
+CB_BP_EXCEL = "bp_excel"
+CB_BP_GEN_DOC = "bp_gen_doc"
+
 
 # Простое состояние (в одну строку — видно и понятно)
 BP_STATE = {}  # { user_id: {"mode": "doc"|"photo"|"gen"|"excel", "fmt": "docx"|"pdf"} }
@@ -262,6 +305,20 @@ def bp_menu_router(call):
 
     chat_id = call.message.chat.id
     user_id = call.from_user.id
+    @bot.message_handler(func=lambda m: m.text == "📂 Business Pro")
+def open_bp_menu_by_text(message):
+    if not is_business_pro_active(message.chat.id):
+        bot.reply_to(message, "Эта кнопка доступна только на тарифе Business Pro.")
+        return
+    send_bp_menu(message.chat.id)
+
+@bot.callback_query_handler(func=lambda c: c.data == CB_BP_MENU)
+def open_bp_menu_by_callback(call):
+    if not is_business_pro_active(call.message.chat.id):
+        bot.answer_callback_query(call.id, "Недоступно без Business Pro")
+        return
+    send_bp_menu(call.message.chat.id)
+
 
     # Работает только в личке
     if call.message.chat.type != "private":
