@@ -46,14 +46,6 @@ TRIAL_TIMES_FILE = "trial_times.json"
 MEMORY_DIR = "memory"
 ADMIN_ID = 1034982624
 
-@bot.message_handler(commands=['bp_off'])
-def bp_off(message):
-    if message.from_user.id != ADMIN_ID:
-        bot.reply_to(message, "Только админ может выключать тариф.")
-        return
-    chat_id = message.chat.id
-    set_active_tier_for_chat(chat_id, None)
-    bot.reply_to(message, "Business Pro выключен для этого чата.")
 
 MAX_HISTORY = 20
 TRIAL_TOKEN_LIMIT = 10_000
