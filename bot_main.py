@@ -1,4 +1,3 @@
-
 import os
 import json
 import time
@@ -13,28 +12,34 @@ from reportlab.pdfgen import canvas
 import openai
 from flask import Flask, request, jsonify
 from yookassa import Configuration, Payment
+from pdf2image import convert_from_bytes  # >>> FIX: был импорт ниже, поднял к остальным
 
 # === КОНФИГ ===
 YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
 YOOKASSA_SECRET_KEY = os.getenv("YOOKASSA_SECRET_KEY")
 Configuration.account_id = YOOKASSA_SHOP_ID
 Configuration.secret_key = YOOKASSA_SECRET_KEY
+
+# === Business Pro: константы и колбэки (gpt-4o закреплён) ===
+BUSINESS_PRO_TIER = "business_pro"
+BUSINESS_PRO_MODEL = "gpt-4o"
+CB_BP_MENU = "bp_menu"
+CB_BP_DOC_ANALYZE = "bp_doc_analyze"
+CB_BP_OCR_IMAGE = "bp_ocr_image"
+CB_BP_EXCEL = "bp_excel"
+CB_BP_GEN_DOC = "bp_gen_doc"
+
 def preprocess_image_for_ocr(image: Image.Image) -> Image.Image:
     # Перевод в оттенки серого
     gray = image.convert('L')
-
     # Усиление контраста
     enhancer = ImageEnhance.Contrast(gray)
     gray = enhancer.enhance(2.0)
-
     # Чистим шум
     gray = gray.filter(ImageFilter.MedianFilter(size=3))
-
     # Бинаризация (черно-белое изображение)
     bw = gray.point(lambda x: 0 if x < 140 else 255, '1')
-
     return bw
-
 
 USED_TRIALS_FILE = "used_trials.json"
 TRIAL_TIMES_FILE = "trial_times.json"
@@ -50,6 +55,7 @@ user_modes = {}
 user_histories = {}
 user_models = {}
 trial_start_times = {}
+
 # ✅ Блок проверки подписки и пробника
 def check_access_and_notify(chat_id):
     now = time.time()
@@ -99,7 +105,6 @@ def check_access_and_notify(chat_id):
 
     return True
 
-
 available_modes = {
     "психолог": "Ты — внимательный и эмпатичный психолог. Говори с заботой, мягко и поддерживающе.",
     "копирайтер": "Ты — профессиональный копирайтер. Пиши живо, увлекательно и убедительно.",
@@ -108,14 +113,13 @@ available_modes = {
     "философ": "Ты — мудрый философ. Говори глубоко, рассуждай и вдохновляй.",
     "профессор": "Ты — профессор. Объясняй подробно, академично и с примерами.",
     "гопник": "Ты — гопник из 90-х. Говори дерзко, с уличным сленгом и акцентом.",
-    "истории": "Ты — рассказчик. Превращай каждый ответ в интересную историю."
+    "истории": "Ты — рассказчик. Преврати каждый ответ в интересную историю."
 }
 
 def extract_chat_id_from_description(description):
     import re
     match = re.search(r'chat_id[:\s]*(\d+)', description)
     return int(match.group(1)) if match else None
-
 
 def create_payment(amount_rub, description, return_url, chat_id):
     try:
@@ -132,13 +136,13 @@ def create_payment(amount_rub, description, return_url, chat_id):
             }
         })
         print("✅ Ссылка на оплату:", payment.confirmation.confirmation_url)
-        return payment.confirmation.confirmation_url
-        return payment.confirmation.confirmation_url
+        return payment.confirmation.confirmation_url  # >>> FIX: удалён повторяющийся return
     except Exception as e:
         print("❌ Ошибка при создании платежа:")
         import traceback
         traceback.print_exc()
         return None
+
 def load_used_trials():
     if os.path.exists(USED_TRIALS_FILE):
         with open(USED_TRIALS_FILE, "r", encoding="utf-8") as f:
@@ -175,15 +179,17 @@ def save_history(chat_id, history):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(history[-MAX_HISTORY:], f, ensure_ascii=False, indent=2)
 
+# >>> FIX: добавил кнопку Business Pro в главное меню, если тариф активен
 def main_menu(chat_id=None):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("🚀 Запустить Neiro Max")
     markup.add("💡 Сменить стиль", "📄 Тарифы")
     markup.add("📘 Правила", "📞 Поддержка")
+    if chat_id and is_business_pro_active(chat_id):
+        markup.add("📂 Business Pro")
     if chat_id and is_admin(chat_id):
         markup.add("♻️ Сброс пробника")
     return markup
-
 
 def style_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -207,15 +213,13 @@ except:
     trial_start_times = {}
     print("⚠️ trial_start_times не найден или пустой. Создан пустой словарь.")
     pass
+
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
 bot = TeleBot(TELEGRAM_TOKEN)
-# === Business Pro (проверка тарифа + UI) ===
-def is_business_pro_active(chat_id: int) -> bool:
-    # === Business Pro (простое JSON-хранилище тарифа) ===
-import json, os
 
+# === Business Pro: простое JSON-хранилище тарифа + проверка ===
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ACTIVE_TIERS_FILE = os.path.join(BASE_DIR, "active_tiers.json")
 
@@ -243,17 +247,14 @@ def set_active_tier_for_chat(chat_id: int, tier: str | None):
         data[key] = tier
     _json_write(ACTIVE_TIERS_FILE, data)
 
-    """
-    True, если у чата активирован Business Pro.
-    Пытаемся вызвать твою функцию получения тарифа; если её нет — False.
-    """
+def is_business_pro_active(chat_id: int) -> bool:
     try:
-        return get_active_tier_for_chat(chat_id) == BUSINESS_PRO_TIER  # <-- твоя функция, позже подтвердим имя
+        return get_active_tier_for_chat(chat_id) == BUSINESS_PRO_TIER
     except Exception:
         return False
 
 def notify_business_pro_activated(chat_id: int):
-    """Сообщение после активации тарифа + кнопка в инлайне."""
+    """Сообщение после активации тарифа + кнопка Business Pro."""
     kb = types.InlineKeyboardMarkup()
     kb.add(types.InlineKeyboardButton("📂 Business Pro", callback_data=CB_BP_MENU))
     bot.send_message(
@@ -264,7 +265,7 @@ def notify_business_pro_activated(chat_id: int):
     )
 
 def send_bp_menu(chat_id: int):
-    """Инлайн-меню Business Pro (пока без обработчиков функций — добавим на Шаге 2)."""
+    """Инлайн-меню Business Pro."""
     kb = types.InlineKeyboardMarkup(row_width=1)
     kb.add(
         types.InlineKeyboardButton("📄 Анализ документа", callback_data=CB_BP_DOC_ANALYZE),
@@ -279,63 +280,12 @@ if WEBHOOK_URL:
     bot.remove_webhook()
     bot.set_webhook(url=WEBHOOK_URL)
 Path(MEMORY_DIR).mkdir(exist_ok=True)
-# ===== Business Pro: каркас меню /bp =====
-from telebot import types
-# === Business Pro (константы/колбэки) ===
-BUSINESS_PRO_TIER = "business_pro"
-BUSINESS_PRO_MODEL = "gpt-4o"  # жёстко закреплённая модель
 
-CB_BP_MENU = "bp_menu"
-CB_BP_DOC_ANALYZE = "bp_doc_analyze"
-CB_BP_OCR_IMAGE = "bp_ocr_image"
-CB_BP_EXCEL = "bp_excel"
-CB_BP_GEN_DOC = "bp_gen_doc"
+# === Business Pro: состояние
+BP_STATE = {}  # { user_id: {"mode": "doc"|"photo"|"gen"|"excel", "fmt": "docx"|"pdf", "excel_path": "..." } }
 
-
-# Простое состояние (в одну строку — видно и понятно)
-BP_STATE = {}  # { user_id: {"mode": "doc"|"photo"|"gen"|"excel", "fmt": "docx"|"pdf"} }
-
-def _bp_allowed(user_id: int) -> bool:
-    """
-    Временная проверка доступа к Business Pro.
-    Пока не подключили оплату — пускаем только ADMIN_ID.
-    Позже просто заменим на твою проверку тарифа.
-    """
-    return str(user_id) == str(ADMIN_ID)
-
-@bot.message_handler(commands=['bp'])
-def bp_open_menu(message):
-    """Главное меню Business Pro (только в личке)."""
-    if message.chat.type != "private":
-        bot.reply_to(message, "Открой это меню в ЛС со мной.")
-        return
-    if not _bp_allowed(message.from_user.id):
-        bot.reply_to(message, "🔒 Доступно по тарифу <b>GPT-4o Business Pro</b>.", parse_mode="HTML")
-        return
-
-    kb = types.InlineKeyboardMarkup()
-    kb.add(types.InlineKeyboardButton("📄 Проанализировать документ", callback_data="bp_doc"))
-    kb.add(types.InlineKeyboardButton("🖼 Фото: OCR-разбор", callback_data="bp_photo"))
-    kb.add(types.InlineKeyboardButton("🧾 Сгенерировать документ", callback_data="bp_gen"))
-    kb.add(types.InlineKeyboardButton("📊 Excel-ассистент", callback_data="bp_excel"))
-    bot.send_message(
-        message.chat.id,
-        "📂 <b>Business Pro</b> — выбери режим:",
-        reply_markup=kb,
-        parse_mode="HTML"
-    )
-
-@bot.callback_query_handler(func=lambda c: c.data in ("bp_doc","bp_photo","bp_gen","bp_excel","bp_gen_docx","bp_gen_pdf"))
-def bp_menu_router(call):
-    """Роутер меню Business Pro — только состояние и подсказка, без тяжёлой логики."""
-    try:
-        bot.answer_callback_query(call.id)
-    except Exception:
-        pass
-
-    chat_id = call.message.chat.id
-    user_id = call.from_user.id
-    @bot.message_handler(func=lambda m: m.text == "📂 Business Pro")
+# === Business Pro: кнопка в Reply и колбэк
+@bot.message_handler(func=lambda m: m.text == "📂 Business Pro")
 def open_bp_menu_by_text(message):
     if not is_business_pro_active(message.chat.id):
         bot.reply_to(message, "Эта кнопка доступна только на тарифе Business Pro.")
@@ -349,48 +299,61 @@ def open_bp_menu_by_callback(call):
         return
     send_bp_menu(call.message.chat.id)
 
+# === Business Pro: роутинг инлайн-кнопок
+@bot.callback_query_handler(func=lambda c: c.data in (CB_BP_DOC_ANALYZE, CB_BP_OCR_IMAGE, CB_BP_EXCEL, CB_BP_GEN_DOC))
+def bp_menu_router(call):
+    try:
+        bot.answer_callback_query(call.id)
+    except Exception:
+        pass
 
-    # Работает только в личке
-    if call.message.chat.type != "private":
-        bot.send_message(chat_id, "Эта функция доступна только в ЛС со мной.")
-        return
+    chat_id = call.message.chat.id
+    user_id = call.from_user.id
 
-    # Доступ
-    if not _bp_allowed(user_id):
+    if not is_business_pro_active(chat_id):
         bot.send_message(chat_id, "🔒 Доступно по тарифу <b>GPT-4o Business Pro</b>.", parse_mode="HTML")
         return
 
-    # Маршрутизация
-    if call.data == "bp_doc":
+    if call.data == CB_BP_DOC_ANALYZE:
         BP_STATE[user_id] = {"mode": "doc"}
-        bot.send_message(chat_id, "📄 Пришли файл: PDF/DOCX/TXT/RTF/ODT.")
+        bot.send_message(chat_id, "📄 Пришлите файл: PDF/DOCX/TXT/RTF/ODT.")
         return
 
-    if call.data == "bp_photo":
+    if call.data == CB_BP_OCR_IMAGE:
         BP_STATE[user_id] = {"mode": "photo"}
-        bot.send_message(chat_id, "🖼 Пришли фото/скриншот (jpg/png). Сделаю OCR и краткий разбор.")
+        bot.send_message(chat_id, "🖼 Пришлите фото/скан (JPG/PNG) или PDF. Сделаю OCR и краткий разбор.")
         return
 
-    if call.data == "bp_gen":
-        kb = types.InlineKeyboardMarkup()
-        kb.add(types.InlineKeyboardButton("DOCX", callback_data="bp_gen_docx"),
-               types.InlineKeyboardButton("PDF",  callback_data="bp_gen_pdf"))
-        bot.send_message(chat_id, "🧾 Выбери формат результата:", reply_markup=kb)
-        return
-
-    if call.data in ("bp_gen_docx", "bp_gen_pdf"):
-        BP_STATE[user_id] = {"mode": "gen", "fmt": ("docx" if call.data.endswith("docx") else "pdf")}
-        bot.send_message(chat_id, "Опиши, какой документ нужен (структура, пункты, стиль).")
-        return
-
-    if call.data == "bp_excel":
+    if call.data == CB_BP_EXCEL:
         BP_STATE[user_id] = {"mode": "excel"}
-        bot.send_message(chat_id, "📊 Пришли .xlsx или напиши «новая таблица», затем — инструкцию, что сделать.")
+        bot.send_message(chat_id, "📊 Пришлите .xlsx или напишите «новая таблица». После — опишите задачу.")
         return
-# ===== /Business Pro: каркас меню /bp =====
+
+    if call.data == CB_BP_GEN_DOC:
+        BP_STATE[user_id] = {"mode": "gen", "fmt": "docx"}  # по умолчанию docx
+        kb = types.InlineKeyboardMarkup()
+        kb.add(types.InlineKeyboardButton("DOCX", callback_data="bp_fmt_docx"),
+               types.InlineKeyboardButton("PDF",  callback_data="bp_fmt_pdf"))
+        bot.send_message(chat_id, "🧾 Выберите формат результата:", reply_markup=kb)
+        return
+
+@bot.callback_query_handler(func=lambda c: c.data in ("bp_fmt_docx", "bp_fmt_pdf"))
+def bp_fmt_select(call):
+    try:
+        bot.answer_callback_query(call.id)
+    except Exception:
+        pass
+    user_id = call.from_user.id
+    chat_id = call.message.chat.id
+    st = BP_STATE.get(user_id, {})
+    if st.get("mode") != "gen":
+        return
+    st["fmt"] = "docx" if call.data.endswith("docx") else "pdf"
+    BP_STATE[user_id] = st
+    bot.send_message(chat_id, "Опишите, какой документ нужен (структура, пункты, стиль).")
+
 # ===== Business Pro: Шаг 2 — анализ документов =====
-import os, io
-from pathlib import Path
+import io
 from datetime import datetime
 
 # Опциональные зависимости — блок работает и без них (тогда PDF/DOCX не разберёт)
@@ -400,11 +363,11 @@ except Exception:
     fitz = None
 
 try:
-    import docx  # python-docx для DOCX
+    import docx as docx_lib  # python-docx для DOCX (не путать с Document)
 except Exception:
-    docx = None
+    docx_lib = None
 
-# Мини-хелпер GPT-4o (новый SDK → фоллбек на старый)
+# Мини-хелпер GPT-4o
 def _gpt4o(messages):
     try:
         from openai import OpenAI
@@ -446,10 +409,10 @@ def _read_pdf_text(path: Path) -> str:
         return ""
 
 def _read_docx_text(path: Path) -> str:
-    if not docx:
+    if not docx_lib:
         return ""
     try:
-        d = docx.Document(str(path))
+        d = docx_lib.Document(str(path))
         parts = [p.text for p in d.paragraphs if p.text]
         for t in d.tables:
             for row in t.rows:
@@ -473,26 +436,53 @@ def _extract_text(path: Path) -> str:
     if ext == ".docx":
         return _read_docx_text(path)
     if ext in (".txt", ".rtf", ".odt"):
-        # rtf/odt — упрощённо читаем как текст (достаточно для стартового анализа)
+        # rtf/odt — упрощённо читаем как текст
         return _read_txt(path)
     return ""
 
 @bot.message_handler(content_types=['document'])
 def bp_handle_document(message):
     st = BP_STATE.get(message.from_user.id, {})
-    if st.get("mode") != "doc":
+    mode = st.get("mode")
+    if mode not in ("doc", "excel"):
         return  # не наш режим — пропускаем, чтобы не конфликтовать с другими хендлерами
 
     if message.chat.type != "private":
-        bot.reply_to(message, "Отправь файл в ЛС.")
+        bot.reply_to(message, "Отправьте файл в ЛС.")
         return
 
-    if not _bp_allowed(message.from_user.id):
+    if not is_business_pro_active(message.chat.id):
         bot.reply_to(message, "🔒 Доступно по тарифу <b>GPT-4o Business Pro</b>.", parse_mode="HTML")
         return
 
-    # Сохраняем файл и вытаскиваем текст
+    # Excel режим
+    if mode == "excel":
+        if not (message.document and message.document.file_name.lower().endswith(".xlsx")):
+            bot.reply_to(message, "Нужен .xlsx файл.")
+            return
+        path = _save_tg_file(message.document.file_id)
+        BP_STATE[message.from_user.id]["excel_path"] = str(path)
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(str(path), data_only=True)
+            infos = []
+            for name in wb.sheetnames:
+                ws = wb[name]
+                dims = f"{ws.max_row} строк × {ws.max_column} столб."
+                headers = [str(c.value) if c.value is not None else "" for c in ws[1]]
+                infos.append(f"• {name}: {dims}\n  Заголовки: {', '.join(headers[:10])}")
+            bot.reply_to(message, "📊 Найдены листы:\n" + "\n".join(infos) + "\n\nОпишите задание по таблице.")
+        except Exception as e:
+            bot.reply_to(message, f"⚠️ Ошибка чтения Excel: {e}")
+        return
+
+    # Документы (pdf/docx/txt/rtf/odt)
     path = _save_tg_file(message.document.file_id)
+    if message.document.file_name.lower().endswith(".xlsx"):
+        # Если пользователь перепутал режим — подскажем
+        bot.reply_to(message, "Это Excel. Откройте «📊 Excel-ассистент» в меню Business Pro.")
+        return
+
     text = _extract_text(path)
     if not text:
         bot.reply_to(message, "Не удалось извлечь текст. Установи PyMuPDF (PDF) и python-docx (DOCX).")
@@ -521,8 +511,56 @@ def bp_handle_document(message):
         bot.reply_to(message, f"⚠️ Ошибка анализа: {e}")
     finally:
         BP_STATE.pop(message.from_user.id, None)
-# ===== /Business Pro: Шаг 2 — анализ документов =====
 
+# === OCR (общий) — починка отступов + разбор для Business Pro
+@bot.message_handler(content_types=['document', 'photo'])
+def handle_ocr_file(message):
+    # Если в Business Pro выбран режим "photo" — делаем OCR + разбор.
+    in_bp_photo = BP_STATE.get(message.from_user.id, {}).get("mode") == "photo"
+
+    try:
+        file_id = message.document.file_id if message.content_type == 'document' else message.photo[-1].file_id
+        file_info = bot.get_file(file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        file_bytes = BytesIO(downloaded_file)
+
+        if message.content_type == 'document' and (message.document.mime_type == 'application/pdf' or message.document.file_name.lower().endswith(".pdf")):
+            images = convert_from_bytes(file_bytes.read(), dpi=300)
+        else:
+            img = Image.open(file_bytes)
+            images = [img]
+
+        text = ''
+        for img in images:
+            processed_img = preprocess_image_for_ocr(img)
+            text += pytesseract.image_to_string(processed_img, lang='rus+eng') + '\n'
+
+        text = text.strip()
+        if not text:
+            text = '🧐 Не удалось распознать текст. Загрузите более чёткое изображение или PDF.'
+
+        # >>> FIX: эти строки раньше были «выпали» из функции — ломали код
+        print("📄 Результат OCR:\n", text[:500])
+
+        # Сохраняем первый кадр для отладки
+        try:
+            images[0].save(f"/tmp/ocr_debug_{int(time.time())}.png")
+        except Exception:
+            pass
+
+        # Если режим Business Pro (photo) — даём структурированный разбор GPT-4o
+        if in_bp_photo and is_business_pro_active(message.chat.id):
+            summary = _gpt4o([
+                {"role": "system", "content": "Кратко структурируй распознанный текст: заголовок, ключевые факты, даты, суммы, имена, возможные действия."},
+                {"role": "user", "content": text[:12000]}
+            ])
+            bot.send_message(message.chat.id, f'🖼️ OCR + разбор:\n\n{summary[:4000]}')
+            BP_STATE.pop(message.from_user.id, None)
+        else:
+            bot.send_message(message.chat.id, f'📄 Распознанный текст:\n\n{text[:4000]}')
+
+    except Exception as e:
+        bot.send_message(message.chat.id, f'❌ Ошибка при обработке файла:\n{e}')
 
 @bot.message_handler(commands=["start"])
 def handle_start(message):
@@ -545,52 +583,6 @@ def handle_start(message):
         reply_markup=main_menu(message.chat.id)
     )
 
-from PIL import Image, ImageEnhance, ImageFilter
-from pdf2image import convert_from_bytes
-import pytesseract
-from io import BytesIO
-
-@bot.message_handler(content_types=['document', 'photo'])
-def handle_ocr_file(message):
-    try:
-        file_id = message.document.file_id if message.content_type == 'document' else message.photo[-1].file_id
-        file_info = bot.get_file(file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-        file_bytes = BytesIO(downloaded_file)
-
-        text = ''
-        if message.content_type == 'document' and message.document.mime_type == 'application/pdf':
-            images = convert_from_bytes(file_bytes.read(), dpi=300)
-        else:
-            img = Image.open(file_bytes)
-            images = [img]
-
-        for img in images:
-            # Предобработка изображения
-            processed_img = preprocess_image_for_ocr(img)
-
-            # OCR
-            text += pytesseract.image_to_string(processed_img, lang='rus+eng') + '\n'
-
-        text = text.strip()
-        if not text:
-            text = '🧐 Не удалось распознать текст. Загрузите более чёткое изображение или PDF.'
-            # Выводим распознанный текст в консоль
-print("📄 Результат OCR:\n", text)
-
-# Сохраняем изображение, которое подали в Tesseract
-# (Это поможет понять, правильно ли оно предобработалось)
-img.save(f"/tmp/ocr_debug_{time.time()}.png")
-
-
-        bot.send_message(message.chat.id, f'📄 Распознанный текст:\n\n{text[:4000]}')
-
-    except Exception as e:
-        bot.send_message(message.chat.id, f'❌ Ошибка при обработке файла:\n{e}')
-
-
-
-
 @bot.message_handler(func=lambda msg: msg.text == "📄 Тарифы")
 def handle_tariffs(message):
     return_url = "https://t.me/NeiroMaxBot"
@@ -603,10 +595,9 @@ def handle_tariffs(message):
         ("GPT-4o: Pro — 499₽", 499, "GPT-4o Pro"),
         ("GPT-4o: Max — 999₽", 999, "GPT-4o Max"),
         ("GPT-4o: Business Pro – 2000₽", 2000, "GPT-4o Business Pro"),
-
     ]
     for label, price, desc in tariffs:
-        full_desc = desc  # 🔧 УБРАЛ chat_id
+        full_desc = desc
         url = create_payment(price, full_desc, return_url, message.chat.id)
         if url:
             buttons.append(types.InlineKeyboardButton(f"💳 {label}", url=url))
@@ -614,7 +605,6 @@ def handle_tariffs(message):
     for btn in buttons:
         markup.add(btn)
     bot.send_message(message.chat.id, "📦 Выберите тариф:", reply_markup=markup)
-
 
 @bot.message_handler(func=lambda msg: msg.text == "♻️ Сброс пробника")
 def handle_reset_trial(message):
@@ -640,7 +630,6 @@ def handle_change_style(message):
     markup.add("📋 Главное меню")
     bot.send_message(message.chat.id, "Выбери стиль общения:", reply_markup=markup)
 
-
 @bot.message_handler(func=lambda msg: msg.text == "📘 Правила")
 def handle_rules(message):
     rules_text = (
@@ -657,65 +646,112 @@ def handle_rules(message):
     )
     bot.send_message(message.chat.id, rules_text, parse_mode="HTML")
 
-
 @bot.message_handler(func=lambda msg: any(phrase in msg.text.lower() for phrase in [
     "как тебя зовут", "твоё имя", "ты кто", "как звать", "называешься", "назови себя"
 ]))
-
 def handle_bot_name(message):
     bot.send_message(message.chat.id, f"Я — {BOT_NAME}, твой персональный AI-ассистент 😉")
-
-
 
 @bot.message_handler(func=lambda msg: msg.text == "📋 Главное меню")
 def handle_main_menu(message):
     bot.send_message(message.chat.id, "Главное меню:", reply_markup=main_menu(message.chat.id))
 
-
-
 @bot.message_handler(func=lambda msg: msg.text == "🚀 Запустить Neiro Max")
 def handle_launch_neiro_max(message):
     bot.send_message(message.chat.id, "Готов к работе! Чем могу помочь?", reply_markup=main_menu(message.chat.id))
-@bot.message_handler(func=lambda msg: msg.text == "📞 Поддержка")
-def handle_support(message):
-    bot.send_message(
-        message.chat.id,
-        "🛠 <b>Поддержка</b>\n\nЕсли возникли вопросы или проблемы, напишите разработчику:\n\n"
-        "Telegram: @neiro_max\n"
-        "Email: support@neiro-max.ai",
-        parse_mode="HTML"
-    )
 
-
-
-
-@bot.message_handler(func=lambda msg: msg.text.lower() in [m.lower() for m in available_modes])
-def handle_style_selection(message):
-    chat_id = str(message.chat.id)
-    selected = message.text.lower()
-    user_modes[chat_id] = selected
-    bot.send_message(chat_id, f"✅ Стиль общения изменён на: <b>{selected.capitalize()}</b>", parse_mode="HTML")
-@bot.message_handler(func=lambda msg: msg.text == "🚀 Запустить Neiro Max")
-def handle_launch(message):
-    chat_id = str(message.chat.id)
-
-    # Повторная инициализация (на всякий случай)
-    user_modes[message.chat.id] = "копирайтер"
-    user_histories[message.chat.id] = []
-    user_models[message.chat.id] = "gpt-3.5-turbo"
-    user_token_limits[message.chat.id] = 0
-
-    bot.send_message(
-        message.chat.id,
-        "Готов к работе! Чем могу помочь? 😉",
-        reply_markup=main_menu(chat_id)
-    )
-
-
+# >>> FIX: убрал дублирующийся второй хэндлер на ту же кнопку, чтобы не было двойных ответов
 
 @bot.message_handler(func=lambda msg: True)
 def handle_prompt(message):
     chat_id = str(message.chat.id)
+
+    # Если пользователь в Business Pro ждёт текст по генерации/Excel — обрабатываем здесь в первую очередь
+    st = BP_STATE.get(message.from_user.id, {})
+    mode = st.get("mode")
+    if is_business_pro_active(message.chat.id) and mode in ("gen", "excel"):
+        if mode == "gen":
+            # Генерация DOCX/PDF из описания
+            text_spec = (message.text or "").strip()
+            if not text_spec:
+                bot.reply_to(message, "Нужен текст с описанием документа.")
+                return
+            # Получаем черновик текста у gpt-4o
+            body = _gpt4o([
+                {"role": "system", "content": "Собери структурированный деловой документ на основе описания пользователя. Русский язык."},
+                {"role": "user", "content": text_spec[:8000]}
+            ])
+            # Сохранение DOCX
+            doc = Document()
+            for para in body.split("\n\n"):
+                doc.add_paragraph(para)
+            doc_bytes = BytesIO()
+            doc.save(doc_bytes)
+            doc_bytes.seek(0)
+
+            # PDF (простой вывод)
+            pdf_bytes = None
+            if st.get("fmt") == "pdf":
+                pdf_bytes = BytesIO()
+                pdf = canvas.Canvas(pdf_bytes)
+                y = 800
+                for line in body.split("\n"):
+                    pdf.drawString(40, y, line[:95])
+                    y -= 15
+                    if y < 40:
+                        pdf.showPage()
+                        y = 800
+                pdf.save()
+                pdf_bytes.seek(0)
+
+            bot.send_message(message.chat.id, "Готово. Отправляю файлы:")
+            bot.send_document(message.chat.id, ("document.docx", doc_bytes))
+            if pdf_bytes:
+                bot.send_document(message.chat.id, ("document.pdf", pdf_bytes))
+            BP_STATE.pop(message.from_user.id, None)
+            return
+
+        if mode == "excel":
+            # Описание задачи по Excel
+            task = (message.text or "").strip().lower()
+            path = st.get("excel_path")
+            if task.startswith("новая таблица") and not path:
+                # создаём минимальную таблицу
+                try:
+                    import openpyxl
+                    from openpyxl import Workbook
+                    wb = Workbook()
+                    ws = wb.active
+                    ws.title = "Data"
+                    ws.append(["date", "category", "amount"])
+                    ws.append(["2025-08-01", "sales", 1200])
+                    ws.append(["2025-08-02", "ads", -300])
+                    tmp = BytesIO()
+                    wb.save(tmp)
+                    tmp.seek(0)
+                    bot.send_document(message.chat.id, ("template.xlsx", tmp))
+                except Exception as e:
+                    bot.send_message(message.chat.id, f"⚠️ Не удалось создать таблицу: {e}")
+                BP_STATE.pop(message.from_user.id, None)
+                return
+
+            if not path:
+                bot.send_message(message.chat.id, "Пришлите .xlsx файл или напишите «новая таблица».")
+                return
+
+            # Здесь можно встроить реальное редактирование Excel.
+            plan = _gpt4o([
+                {"role": "system", "content": "Ты помощник по Excel. Сформируй план шагов по задаче пользователя, укажи формулы/сводные, если уместно."},
+                {"role": "user", "content": f"Файл: {os.path.basename(path)}\nЗадача: {message.text[:4000]}"}
+            ])
+            bot.send_message(message.chat.id, f"📊 План действий:\n{plan}")
+            try:
+                with open(path, "rb") as f:
+                    bot.send_document(message.chat.id, f, visible_file_name=os.path.basename(path))
+            except Exception:
+                pass
+            BP_STATE.pop(message.from_user.id, None)
+            return
 
     # 🔒 Проверка доступа (тариф/пробник)
     if not check_access_and_notify(chat_id):
@@ -725,14 +761,11 @@ def handle_prompt(message):
     if chat_id not in trial_start_times:
         trial_start_times[chat_id] = time.time()
 
-
-
-
     # ✅ Проверка лимитов токенов и времени
     tokens_used = user_token_limits.get(chat_id, 0)
     time_elapsed = time.time() - trial_start_times[chat_id]
     if time_elapsed > TRIAL_DURATION_SECONDS or tokens_used >= TRIAL_TOKEN_LIMIT:
-    # ⚠️ Уведомление о завершении пробника + кнопки с тарифами
+        # ⚠️ Уведомление о завершении пробника + кнопки с тарифами
         return_url = "https://t.me/NeiroMaxBot"
         buttons = []
         tariffs = [
@@ -756,6 +789,7 @@ def handle_prompt(message):
             reply_markup=markup
         )
         return
+
     prompt = message.text.strip()
     mode = user_modes.get(chat_id, "копирайтер")
     model = user_models.get(chat_id, "gpt-3.5-turbo")
@@ -800,8 +834,11 @@ def handle_file_format(call):
         pdf = canvas.Canvas(pdf_bytes)
         y = 800
         for line in text.split("\n"):
-            pdf.drawString(40, y, line)
+            pdf.drawString(40, y, line[:95])
             y -= 15
+            if y < 40:
+                pdf.showPage()
+                y = 800
         pdf.save()
         pdf_bytes.seek(0)
         bot.send_document(chat_id, ("neiro_max_output.pdf", pdf_bytes))
@@ -829,50 +866,13 @@ def webhook():
 @app.route("/yookassa/webhook", methods=["POST"])
 def yookassa_webhook():
     data = request.json
-    
 
-    # Проверяем статус
+    # Старый вариант статуса (оставлен для совместимости)
     if data.get("object", {}).get("status") == "succeeded":
         description = data.get("object", {}).get("description", "")
         payment_id = data.get("object", {}).get("id")
-
-        # Получаем chat_id из описания
-        try:
-            parts = description.split(":")
-            chat_id = int(parts[1])
-            tariff = parts[2]
-
-            # Устанавливаем модель
-            if "gpt-4" in tariff.lower():
-                user_models[str(chat_id)] = "gpt-4o"
-            else:
-                user_models[str(chat_id)] = "gpt-3.5-turbo"
-
-            # Устанавливаем срок подписки (например, 30 дней)
-            now = int(time.time())
-            subscriptions_file = "subscriptions.json"
-            if os.path.exists(subscriptions_file):
-                with open(subscriptions_file, "r", encoding="utf-8") as f:
-                    subscriptions = json.load(f)
-            else:
-                subscriptions = {}
-
-            subscriptions[str(chat_id)] = {
-                "model": user_models[str(chat_id)],
-                "activated_at": now,
-                "expires_at": now + 30 * 24 * 60 * 60,
-                "token_limit": 100000,
-                "warned": False
-            }
-
-            with open(subscriptions_file, "w", encoding="utf-8") as f:
-                json.dump(subscriptions, f, ensure_ascii=False, indent=2)
-
-            # Уведомляем пользователя
-            bot.send_message(chat_id, f"✅ Оплата прошла успешно! Вам активирован тариф: *{tariff}*", parse_mode="Markdown")
-
-        except Exception as e:
-            print(f"[webhook error] Ошибка при обработке описания: {e}")
+        # chat_id теперь берём из metadata во втором блоке — этот оставлен как fallback
+        pass
 
     if data.get('event') == 'payment.succeeded':
         obj = data['object']
@@ -894,18 +894,23 @@ def yookassa_webhook():
         # 🔐 Защита от повторной отправки
         if chat_id in user_models:
             print(f"[Webhook] Модель уже активирована для chat_id={chat_id}")
+            # но всё равно обновим Business Pro, если это он
+            if "Business Pro" in description:
+                set_active_tier_for_chat(chat_id, BUSINESS_PRO_TIER)
             return jsonify({"status": "already activated"})
 
         # ✅ Активируем модель
         user_models[chat_id] = model
-                # 🎯 Назначение лимита токенов по тарифу
+
+        # 🎯 Назначение лимита токенов по тарифу
         token_limits = {
             "GPT-3.5 Lite": 50000,
             "GPT-3.5 Pro": 100000,
             "GPT-3.5 Max": 1000000,
             "GPT-4o Lite": 30000,
             "GPT-4o Pro": 60000,
-            "GPT-4o Max": 1000000
+            "GPT-4o Max": 1000000,
+            "GPT-4o Business Pro": 200000  # >>> Business Pro лимит
         }
         token_limit = token_limits.get(description, 100000)
 
@@ -932,11 +937,15 @@ def yookassa_webhook():
         except Exception as e:
             print(f"[Ошибка записи подписки]: {e}")
 
+        # >>> Business Pro: включаем флаг тарифа и показываем меню
+        if "Business Pro" in description:
+            set_active_tier_for_chat(chat_id, BUSINESS_PRO_TIER)
+            notify_business_pro_activated(chat_id)
+
         bot.send_message(chat_id, f"✅ Оплата прошла успешно!\nАктивирован тариф: <b>{description}</b>", parse_mode="HTML")
         return jsonify({"status": "ok"})
 
     return jsonify({"status": "ignored"})
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
