@@ -544,7 +544,8 @@ def handle_ocr_file(message):
         file_bytes = BytesIO(downloaded_file)
 
         if message.content_type == 'document' and (message.document.mime_type == 'application/pdf' or message.document.file_name.lower().endswith(".pdf")):
-            images = convert_from_bytes(file_bytes.read(), dpi=300)
+            images = convert_from_bytes(file_bytes.read(), dpi=400)  # было 300
+
         else:
             img = Image.open(file_bytes)
             images = [img]
@@ -552,7 +553,12 @@ def handle_ocr_file(message):
         text = ''
         for img in images:
             processed_img = preprocess_image_for_ocr(img)
-            text += pytesseract.image_to_string(processed_img, lang='rus+eng') + '\n'
+            text += pytesseract.image_to_string(
+    processed_img,
+    lang='rus+eng',
+    config="--oem 3 --psm 6 -c preserve_interword_spaces=1"
+) + '\n'
+
 
         text = text.strip()
         if not text:
