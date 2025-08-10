@@ -531,37 +531,25 @@ def bp_handle_document(message):
     finally:
         BP_STATE.pop(message.from_user.id, None)
 
-# === OCR (общий) — починка отступов + разбор для Business Pro
-@bot.message_handler(content_types=['document', 'photo'])
-def handle_ocr_file(message):
-    # Если в Business Pro выбран режим "photo" — делаем OCR + разбор.
-    in_bp_photo = BP_STATE.get(message.from_user.id, {}).get("mode") == "photo"
-
-    try:
-        file_id = message.document.file_id if message.content_type == 'document' else message.photo[-1].file_id
-        file_info = bot.get_file(file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-        file_bytes = BytesIO(downloaded_file)
-
         if message.content_type == 'document' and (message.document.mime_type == 'application/pdf' or message.document.file_name.lower().endswith(".pdf")):
             # СНАЧАЛА пытаемся вытащить встроенный текст из PDF (без OCR)
-pdf_bytes = file_bytes.getvalue()
-try:
-    import fitz  # PyMuPDF
-    with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
-        parts = []
-        for page in doc:
-            t = page.get_text("text").strip()
-            if t:
-                parts.append(t)
-    pdf_text = "\n".join(parts).strip()
-except Exception:
-    pdf_text = ""
+            pdf_bytes = file_bytes.getvalue()
+            try:
+                import fitz  # PyMuPDF
+                with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+                    parts = []
+                    for page in doc:
+                        t = page.get_text("text").strip()
+                        if t:
+                            parts.append(t)
+                pdf_text = "\n".join(parts).strip()
+            except Exception:
+                pdf_text = ""
 
-if pdf_text:
-    # В PDF был нормальный текст — отдаём его без OCR (будет заметно чище)
-    bot.send_message(message.chat.id, f'📄 Текст из PDF (без OCR):\n\n{pdf_text[:4000]}')
-    return
+            if pdf_text:
+                # В PDF был нормальный текст — отдаём его без OCR (будет заметно чище)
+                bot.send_message(message.chat.id, f'📄 Текст из PDF (без OCR):\n\n{pdf_text[:4000]}')
+                return
 
 # Если текста в PDF нет (скан), только тогда идём в OCR
 file_bytes.seek(0)
