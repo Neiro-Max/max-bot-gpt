@@ -45,15 +45,6 @@ USED_TRIALS_FILE = "used_trials.json"
 TRIAL_TIMES_FILE = "trial_times.json"
 MEMORY_DIR = "memory"
 ADMIN_ID = 1034982624
-# === ADMIN: ручная активация Business Pro ===
-@bot.message_handler(commands=['bp_on'])
-def bp_on(message):
-    if message.from_user.id != ADMIN_ID:
-        bot.reply_to(message, "Только админ может включать тариф.")
-        return
-    chat_id = message.chat.id
-    set_active_tier_for_chat(chat_id, BUSINESS_PRO_TIER)  # флаг тарифа
-    notify_business_pro_activated(chat_id)                 # сообщение + кнопка
 
 @bot.message_handler(commands=['bp_off'])
 def bp_off(message):
@@ -237,6 +228,16 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
 bot = TeleBot(TELEGRAM_TOKEN)
+# === ADMIN: ручная активация Business Pro ===
+@bot.message_handler(commands=['bp_on'])
+def bp_on(message):
+    if message.from_user.id != ADMIN_ID:
+        bot.reply_to(message, "Только админ может включать тариф.")
+        return
+    chat_id = message.chat.id
+    set_active_tier_for_chat(chat_id, BUSINESS_PRO_TIER)  # флаг тарифа
+    notify_business_pro_activated(chat_id)                 # сообщение + кнопка
+
 
 # === Business Pro: простое JSON-хранилище тарифа + проверка ===
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
