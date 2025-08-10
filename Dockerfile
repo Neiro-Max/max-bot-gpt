@@ -1,25 +1,23 @@
-# 1. Базовый образ Python
+# 1) Базовый образ
 FROM python:3.11
 
-# 2. Установка системных утилит для OCR с поддержкой русского и английского языков
-RUN apt-get update && apt-get install -y \
-    tesseract-ocr \
-    tesseract-ocr-rus \
-    tesseract-ocr-eng \
+# 2) Системные пакеты для OCR/PDF (лёгкая установка без dev-пакетов)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tesseract-ocr tesseract-ocr-rus tesseract-ocr-eng \
     poppler-utils \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
- && apt-get clean
+    libglib2.0-0 libsm6 libxext6 libxrender1 \
+ && rm -rf /var/lib/apt/lists/*
 
-# 3. Установка Python-зависимостей
+# 3) Python-зависимости
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 4. Копируем весь проект внутрь контейнера
-COPY ./app /app
+# 4) Копируем проект
+COPY . /app
 WORKDIR /app
 
-# 5. Запуск бота
+# 5) Логи без буферизации
+ENV PYTHONUNBUFFERED=1
+
+# 6) Запуск
 CMD ["python", "bot_main.py"]
