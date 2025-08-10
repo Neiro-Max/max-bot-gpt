@@ -30,16 +30,23 @@ CB_BP_EXCEL = "bp_excel"
 CB_BP_GEN_DOC = "bp_gen_doc"
 
 def preprocess_image_for_ocr(image: Image.Image) -> Image.Image:
-    # Перевод в оттенки серого
-    gray = image.convert('L')
-    # Усиление контраста
-    enhancer = ImageEnhance.Contrast(gray)
-    gray = enhancer.enhance(2.0)
-    # Чистим шум
-    gray = gray.filter(ImageFilter.MedianFilter(size=3))
-    # Бинаризация (черно-белое изображение)
-    bw = gray.point(lambda x: 0 if x < 140 else 255, '1')
-    return bw
+    # 1) фиксируем поворот по EXIF
+    img = ImageOps.exif_transpose(image)
+    # 2) перевод в градации серого
+    img = img.convert("L")
+    # 3) апскейл, если мелко
+    w, h = img.size
+    if max(w, h) < 1600:
+        img = img.resize((w * 2, h * 2))
+    # 4) автоконтраст + шумодав + лёгкая резкость
+    img = ImageOps.autocontrast(img)
+    img = img.filter(ImageFilter.MedianFilter(size=3))
+    img = img.filter(ImageFilter.UnsharpMask(radius=1.3, percent=160, threshold=2))
+    # 5) бинаризация (порог выше — лучше для rus+eng)
+    bw = img.point(lambda x: 0 if x < 160 else 255, '1')
+    # Tesseract стабильнее ест 8-битный серый
+    return bw.convert("L")
+
 
 USED_TRIALS_FILE = "used_trials.json"
 TRIAL_TIMES_FILE = "trial_times.json"
