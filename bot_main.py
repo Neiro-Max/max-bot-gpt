@@ -555,28 +555,25 @@ def bp_handle_document(message):
             bot.send_message(message.chat.id, f'📄 Текст из PDF (без OCR):\n\n{pdf_text[:4000]}')
             return
 
-# Если текста в PDF нет (скан), только тогда идём в OCR
-file_bytes.seek(0)
-images = convert_from_bytes(file_bytes.read(), dpi=350)  # можно 350–400
-  # было 300
-
+            # Если текста в PDF нет (скан), только тогда идём в OCR
+            file_bytes.seek(0)
+            images = convert_from_bytes(file_bytes.read(), dpi=350)  # можно 350–400
         else:
             img = Image.open(file_bytes)
             images = [img]
 
-        text = ''
+        text = ""
         for img in images:
             processed_img = preprocess_image_for_ocr(img)
             text += pytesseract.image_to_string(
-    processed_img,
-    lang='rus+eng',
-    config="--oem 3 --psm 6 -c preserve_interword_spaces=1"
-) + '\n'
-
+                processed_img,
+                lang="rus+eng",
+                config="--oem 3 --psm 6 -c preserve_interword_spaces=1"
+            ) + "\n"
 
         text = text.strip()
         if not text:
-            text = '🧐 Не удалось распознать текст. Загрузите более чёткое изображение или PDF.'
+            text = "🧐 Не удалось распознать текст. Загрузите более чёткое изображение или PDF."
 
         # >>> FIX: эти строки раньше были «выпали» из функции — ломали код
         print("📄 Результат OCR:\n", text[:500])
