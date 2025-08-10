@@ -45,6 +45,25 @@ USED_TRIALS_FILE = "used_trials.json"
 TRIAL_TIMES_FILE = "trial_times.json"
 MEMORY_DIR = "memory"
 ADMIN_ID = 1034982624
+# === ADMIN: ручная активация Business Pro ===
+@bot.message_handler(commands=['bp_on'])
+def bp_on(message):
+    if message.from_user.id != ADMIN_ID:
+        bot.reply_to(message, "Только админ может включать тариф.")
+        return
+    chat_id = message.chat.id
+    set_active_tier_for_chat(chat_id, BUSINESS_PRO_TIER)  # флаг тарифа
+    notify_business_pro_activated(chat_id)                 # сообщение + кнопка
+
+@bot.message_handler(commands=['bp_off'])
+def bp_off(message):
+    if message.from_user.id != ADMIN_ID:
+        bot.reply_to(message, "Только админ может выключать тариф.")
+        return
+    chat_id = message.chat.id
+    set_active_tier_for_chat(chat_id, None)
+    bot.reply_to(message, "Business Pro выключен для этого чата.")
+
 MAX_HISTORY = 20
 TRIAL_TOKEN_LIMIT = 10_000
 TRIAL_DURATION_SECONDS = 86400  # 24 часа
