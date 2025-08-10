@@ -544,7 +544,29 @@ def handle_ocr_file(message):
         file_bytes = BytesIO(downloaded_file)
 
         if message.content_type == 'document' and (message.document.mime_type == 'application/pdf' or message.document.file_name.lower().endswith(".pdf")):
-            images = convert_from_bytes(file_bytes.read(), dpi=400)  # было 300
+            # СНАЧАЛА пытаемся вытащить встроенный текст из PDF (без OCR)
+pdf_bytes = file_bytes.getvalue()
+try:
+    import fitz  # PyMuPDF
+    with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+        parts = []
+        for page in doc:
+            t = page.get_text("text").strip()
+            if t:
+                parts.append(t)
+    pdf_text = "\n".join(parts).strip()
+except Exception:
+    pdf_text = ""
+
+if pdf_text:
+    # В PDF был нормальный текст — отдаём его без OCR (будет заметно чище)
+    bot.send_message(message.chat.id, f'📄 Текст из PDF (без OCR):\n\n{pdf_text[:4000]}')
+    return
+
+# Если текста в PDF нет (скан), только тогда идём в OCR
+file_bytes.seek(0)
+images = convert_from_bytes(file_bytes.read(), dpi=350)  # можно 350–400
+  # было 300
 
         else:
             img = Image.open(file_bytes)
