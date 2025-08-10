@@ -3,7 +3,7 @@ import os
 import json
 import time
 from pathlib import Path
-from io import BytesIO
+from io import BytesIO   
 
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 import pytesseract
