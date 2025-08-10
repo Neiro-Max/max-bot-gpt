@@ -212,13 +212,43 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
 bot = TeleBot(TELEGRAM_TOKEN)
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+import time
+from telebot.apihelper import ApiTelegramException
+
+def safe_set_webhook(url: str):
+    try:
+        bot.remove_webhook()
+    except Exception as e:
+        print(f"[Webhook] remove_webhook warn: {e}")
+    time.sleep(1.5)
+
+    attempt, backoff = 0, 1.5
+    while attempt < 6:
+        try:
+            bot.set_webhook(url=url, max_connections=50, drop_pending_updates=True)
+            print(f"✅ Webhook установлен: {url}")
+            return
+        except ApiTelegramException as e:
+            ra = 0
+            try: ra = int((e.result_json or {}).get("parameters", {}).get("retry_after", 0))
+            except: pass
+            wait = max(ra, backoff)
+            print(f"[Webhook Error] {e}. Retry in {wait}s")
+            time.sleep(wait)
+            attempt += 1
+            backoff = min(backoff * 2, 30)
+        except Exception as e:
+            print(f"[Webhook Error] {e}. Retry in {backoff}s")
+            time.sleep(backoff)
+            attempt += 1
+            backoff = min(backoff * 2, 30)
+    print("❌ Не удалось установить вебхук после ретраев")
+
 if WEBHOOK_URL:
-    bot.remove_webhook()
-    bot.set_webhook(url=WEBHOOK_URL)
-Path(MEMORY_DIR).mkdir(exist_ok=True)
-@bot.message_handler(commands=["start"])
-def handle_start(message):
-    chat_id = str(message.chat.id)
+    safe_set_webhook(WEBHOOK_URL)
+else:
+    print("⚠️ WEBHOOK_URL не задан — бот не получит апдейты.")
+
 
     # Минимальная инициализация
     user_modes[message.chat.id] = "копирайтер"
