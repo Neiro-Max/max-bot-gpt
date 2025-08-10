@@ -216,6 +216,227 @@ if WEBHOOK_URL:
     bot.remove_webhook()
     bot.set_webhook(url=WEBHOOK_URL)
 Path(MEMORY_DIR).mkdir(exist_ok=True)
+# ===== Business Pro: каркас меню /bp =====
+from telebot import types
+
+# Простое состояние (в одну строку — видно и понятно)
+BP_STATE = {}  # { user_id: {"mode": "doc"|"photo"|"gen"|"excel", "fmt": "docx"|"pdf"} }
+
+def _bp_allowed(user_id: int) -> bool:
+    """
+    Временная проверка доступа к Business Pro.
+    Пока не подключили оплату — пускаем только ADMIN_ID.
+    Позже просто заменим на твою проверку тарифа.
+    """
+    return str(user_id) == str(ADMIN_ID)
+
+@bot.message_handler(commands=['bp'])
+def bp_open_menu(message):
+    """Главное меню Business Pro (только в личке)."""
+    if message.chat.type != "private":
+        bot.reply_to(message, "Открой это меню в ЛС со мной.")
+        return
+    if not _bp_allowed(message.from_user.id):
+        bot.reply_to(message, "🔒 Доступно по тарифу <b>GPT-4o Business Pro</b>.", parse_mode="HTML")
+        return
+
+    kb = types.InlineKeyboardMarkup()
+    kb.add(types.InlineKeyboardButton("📄 Проанализировать документ", callback_data="bp_doc"))
+    kb.add(types.InlineKeyboardButton("🖼 Фото: OCR-разбор", callback_data="bp_photo"))
+    kb.add(types.InlineKeyboardButton("🧾 Сгенерировать документ", callback_data="bp_gen"))
+    kb.add(types.InlineKeyboardButton("📊 Excel-ассистент", callback_data="bp_excel"))
+    bot.send_message(
+        message.chat.id,
+        "📂 <b>Business Pro</b> — выбери режим:",
+        reply_markup=kb,
+        parse_mode="HTML"
+    )
+
+@bot.callback_query_handler(func=lambda c: c.data in ("bp_doc","bp_photo","bp_gen","bp_excel","bp_gen_docx","bp_gen_pdf"))
+def bp_menu_router(call):
+    """Роутер меню Business Pro — только состояние и подсказка, без тяжёлой логики."""
+    try:
+        bot.answer_callback_query(call.id)
+    except Exception:
+        pass
+
+    chat_id = call.message.chat.id
+    user_id = call.from_user.id
+
+    # Работает только в личке
+    if call.message.chat.type != "private":
+        bot.send_message(chat_id, "Эта функция доступна только в ЛС со мной.")
+        return
+
+    # Доступ
+    if not _bp_allowed(user_id):
+        bot.send_message(chat_id, "🔒 Доступно по тарифу <b>GPT-4o Business Pro</b>.", parse_mode="HTML")
+        return
+
+    # Маршрутизация
+    if call.data == "bp_doc":
+        BP_STATE[user_id] = {"mode": "doc"}
+        bot.send_message(chat_id, "📄 Пришли файл: PDF/DOCX/TXT/RTF/ODT.")
+        return
+
+    if call.data == "bp_photo":
+        BP_STATE[user_id] = {"mode": "photo"}
+        bot.send_message(chat_id, "🖼 Пришли фото/скриншот (jpg/png). Сделаю OCR и краткий разбор.")
+        return
+
+    if call.data == "bp_gen":
+        kb = types.InlineKeyboardMarkup()
+        kb.add(types.InlineKeyboardButton("DOCX", callback_data="bp_gen_docx"),
+               types.InlineKeyboardButton("PDF",  callback_data="bp_gen_pdf"))
+        bot.send_message(chat_id, "🧾 Выбери формат результата:", reply_markup=kb)
+        return
+
+    if call.data in ("bp_gen_docx", "bp_gen_pdf"):
+        BP_STATE[user_id] = {"mode": "gen", "fmt": ("docx" if call.data.endswith("docx") else "pdf")}
+        bot.send_message(chat_id, "Опиши, какой документ нужен (структура, пункты, стиль).")
+        return
+
+    if call.data == "bp_excel":
+        BP_STATE[user_id] = {"mode": "excel"}
+        bot.send_message(chat_id, "📊 Пришли .xlsx или напиши «новая таблица», затем — инструкцию, что сделать.")
+        return
+# ===== /Business Pro: каркас меню /bp =====
+# ===== Business Pro: Шаг 2 — анализ документов =====
+import os, io
+from pathlib import Path
+from datetime import datetime
+
+# Опциональные зависимости — блок работает и без них (тогда PDF/DOCX не разберёт)
+try:
+    import fitz  # PyMuPDF для PDF
+except Exception:
+    fitz = None
+
+try:
+    import docx  # python-docx для DOCX
+except Exception:
+    docx = None
+
+# Мини-хелпер GPT-4o (новый SDK → фоллбек на старый)
+def _gpt4o(messages):
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        r = client.chat.completions.create(model="gpt-4o", messages=messages, temperature=0.2)
+        return r.choices[0].message.content
+    except Exception:
+        import openai
+        openai.api_key = os.getenv("OPENAI_API_KEY")
+        r = openai.ChatCompletion.create(model="gpt-4o", messages=messages, temperature=0.2)
+        return r["choices"][0]["message"]["content"]
+
+# Каталог для временных файлов
+BP_DIR = Path(__file__).parent / "bp_files"
+BP_DIR.mkdir(exist_ok=True)
+
+def _save_tg_file(file_id: str, prefer_ext: str = "") -> Path:
+    f = bot.get_file(file_id)
+    b = bot.download_file(f.file_path)
+    ext = os.path.splitext(f.file_path)[1] or prefer_ext
+    name = f"bp_{int(datetime.now().timestamp())}_{file_id.replace('/','_')}{ext}"
+    p = BP_DIR / name
+    with open(p, "wb") as w:
+        w.write(b)
+    return p
+
+def _read_pdf_text(path: Path) -> str:
+    if not fitz:
+        return ""
+    try:
+        doc = fitz.open(str(path))
+        chunks = []
+        for page in doc:
+            t = page.get_text()
+            if t:
+                chunks.append(t.strip())
+        return "\n".join(chunks).strip()
+    except Exception:
+        return ""
+
+def _read_docx_text(path: Path) -> str:
+    if not docx:
+        return ""
+    try:
+        d = docx.Document(str(path))
+        parts = [p.text for p in d.paragraphs if p.text]
+        for t in d.tables:
+            for row in t.rows:
+                parts.append("\t".join(c.text for c in row.cells))
+        return "\n".join(parts).strip()
+    except Exception:
+        return ""
+
+def _read_txt(path: Path) -> str:
+    for enc in ("utf-8", "cp1251", "latin-1"):
+        try:
+            return path.read_text(encoding=enc)
+        except Exception:
+            continue
+    return path.read_bytes().decode(errors="ignore")
+
+def _extract_text(path: Path) -> str:
+    ext = path.suffix.lower()
+    if ext == ".pdf":
+        return _read_pdf_text(path)
+    if ext == ".docx":
+        return _read_docx_text(path)
+    if ext in (".txt", ".rtf", ".odt"):
+        # rtf/odt — упрощённо читаем как текст (достаточно для стартового анализа)
+        return _read_txt(path)
+    return ""
+
+@bot.message_handler(content_types=['document'])
+def bp_handle_document(message):
+    st = BP_STATE.get(message.from_user.id, {})
+    if st.get("mode") != "doc":
+        return  # не наш режим — пропускаем, чтобы не конфликтовать с другими хендлерами
+
+    if message.chat.type != "private":
+        bot.reply_to(message, "Отправь файл в ЛС.")
+        return
+
+    if not _bp_allowed(message.from_user.id):
+        bot.reply_to(message, "🔒 Доступно по тарифу <b>GPT-4o Business Pro</b>.", parse_mode="HTML")
+        return
+
+    # Сохраняем файл и вытаскиваем текст
+    path = _save_tg_file(message.document.file_id)
+    text = _extract_text(path)
+    if not text:
+        bot.reply_to(message, "Не удалось извлечь текст. Установи PyMuPDF (PDF) и python-docx (DOCX).")
+        BP_STATE.pop(message.from_user.id, None)
+        return
+
+    bot.send_chat_action(message.chat.id, "typing")
+    try:
+        brief = _gpt4o([
+            {"role": "system", "content": "Отвечай по-русски, чётко и кратко."},
+            {"role": "user", "content":
+                "Проанализируй документ и дай:\n"
+                "1) краткое резюме (2–3 предложения),\n"
+                "2) ключевые факты (списком),\n"
+                "3) риски/неточности,\n"
+                "4) рекомендации.\n\n"
+                f"Имя файла: {message.document.file_name}\n"
+                f"Текст:\n{text[:12000]}"}
+        ])
+        bot.send_message(
+            message.chat.id,
+            f"✅ Разбор <b>{message.document.file_name}</b>:\n\n{brief}",
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        bot.reply_to(message, f"⚠️ Ошибка анализа: {e}")
+    finally:
+        BP_STATE.pop(message.from_user.id, None)
+# ===== /Business Pro: Шаг 2 — анализ документов =====
+
+
 @bot.message_handler(commands=["start"])
 def handle_start(message):
     chat_id = str(message.chat.id)
