@@ -213,6 +213,36 @@ openai.api_key = OPENAI_API_KEY
 bot = TeleBot(TELEGRAM_TOKEN)
 # === Business Pro (проверка тарифа + UI) ===
 def is_business_pro_active(chat_id: int) -> bool:
+    # === Business Pro (простое JSON-хранилище тарифа) ===
+import json, os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ACTIVE_TIERS_FILE = os.path.join(BASE_DIR, "active_tiers.json")
+
+def _json_read(path: str) -> dict:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _json_write(path: str, data: dict):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def get_active_tier_for_chat(chat_id: int) -> str | None:
+    data = _json_read(ACTIVE_TIERS_FILE)
+    return data.get(str(chat_id))
+
+def set_active_tier_for_chat(chat_id: int, tier: str | None):
+    data = _json_read(ACTIVE_TIERS_FILE)
+    key = str(chat_id)
+    if tier is None:
+        data.pop(key, None)
+    else:
+        data[key] = tier
+    _json_write(ACTIVE_TIERS_FILE, data)
+
     """
     True, если у чата активирован Business Pro.
     Пытаемся вызвать твою функцию получения тарифа; если её нет — False.
