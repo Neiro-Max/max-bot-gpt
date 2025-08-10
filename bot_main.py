@@ -495,7 +495,7 @@ def bp_handle_document(message):
             bot.reply_to(message, f"⚠️ Ошибка чтения Excel: {e}")
         return
 
-    # Документы (pdf/docx/txt/rtf/odt)
+        # Документы (pdf/docx/txt/rtf/odt)
     path = _save_tg_file(message.document.file_id)
     if message.document.file_name.lower().endswith(".xlsx"):
         # Если пользователь перепутал режим — подскажем
@@ -531,25 +531,29 @@ def bp_handle_document(message):
     finally:
         BP_STATE.pop(message.from_user.id, None)
 
-        if message.content_type == 'document' and (message.document.mime_type == 'application/pdf' or message.document.file_name.lower().endswith(".pdf")):
-            # СНАЧАЛА пытаемся вытащить встроенный текст из PDF (без OCR)
-            pdf_bytes = file_bytes.getvalue()
-            try:
-                import fitz  # PyMuPDF
-                with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
-                    parts = []
-                    for page in doc:
-                        t = page.get_text("text").strip()
-                        if t:
-                            parts.append(t)
-                pdf_text = "\n".join(parts).strip()
-            except Exception:
-                pdf_text = ""
+    # (опционально) если это PDF — сначала попробуем вытащить встроенный текст без OCR
+    if message.content_type == 'document' and (message.document.mime_type == 'application/pdf' or message.document.file_name.lower().endswith(".pdf")):
+        from io import BytesIO  # <-- добавил эту строку и следующую, чтобы не было NameError
+        file_bytes = BytesIO(open(path, "rb").read())  # <-- определяем file_bytes
 
-            if pdf_text:
-                # В PDF был нормальный текст — отдаём его без OCR (будет заметно чище)
-                bot.send_message(message.chat.id, f'📄 Текст из PDF (без OCR):\n\n{pdf_text[:4000]}')
-                return
+        # СНАЧАЛА пытаемся вытащить встроенный текст из PDF (без OCR)
+        pdf_bytes = file_bytes.getvalue()
+        try:
+            import fitz  # PyMuPDF
+            with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+                parts = []
+                for page in doc:
+                    t = page.get_text("text").strip()
+                    if t:
+                        parts.append(t)
+            pdf_text = "\n".join(parts).strip()
+        except Exception:
+            pdf_text = ""
+
+        if pdf_text:
+            # В PDF был нормальный текст — отдаём его без OCR (будет заметно чище)
+            bot.send_message(message.chat.id, f'📄 Текст из PDF (без OCR):\n\n{pdf_text[:4000]}')
+            return
 
 # Если текста в PDF нет (скан), только тогда идём в OCR
 file_bytes.seek(0)
