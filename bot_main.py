@@ -584,19 +584,19 @@ def bp_handle_document(message):
         except Exception:
             pass
 
-        # Если режим Business Pro (photo) — даём структурированный разбор GPT-4o
+                # Если режим Business Pro (photo) — даём структурированный разбор GPT-4o
         if in_bp_photo and is_business_pro_active(message.chat.id):
             summary = _gpt4o([
                 {"role": "system", "content": "Кратко структурируй распознанный текст: заголовок, ключевые факты, даты, суммы, имена, возможные действия."},
                 {"role": "user", "content": text[:12000]}
             ])
-            bot.send_message(message.chat.id, f'🖼️ OCR + разбор:\n\n{summary[:4000]}')
+            bot.send_message(message.chat.id, f"🖼️ OCR + разбор:\n\n{summary[:4000]}")
             BP_STATE.pop(message.from_user.id, None)
         else:
-            bot.send_message(message.chat.id, f'📄 Распознанный текст:\n\n{text[:4000]}')
+            bot.send_message(message.chat.id, f"📄 Распознанный текст:\n\n{text[:4000]}")
 
     except Exception as e:
-        bot.send_message(message.chat.id, f'❌ Ошибка при обработке файла:\n{e}')
+        bot.send_message(message.chat.id, f"❌ Ошибка при обработке файла:\n{e}")
 
 @bot.message_handler(commands=["start"])
 def handle_start(message):
