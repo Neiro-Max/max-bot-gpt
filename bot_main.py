@@ -270,15 +270,17 @@ def handle_ocr_file(message):
             # Выводим распознанный текст в консоль
         print("📄 Результат OCR:\n", text)
 
-# Сохраняем изображение, которое подали в Tesseract
-# (Это поможет понять, правильно ли оно предобработалось)
-img.save(f"/tmp/ocr_debug_{time.time()}.png")
+        # Сохраняем изображение, поданное в Tesseract (для отладки)
+        try:
+            if images:
+                dbg_img = preprocess_image_for_ocr(images[0])
+                dbg_img.save(f"/tmp/ocr_debug_{int(time.time())}.png")
+        except Exception:
+            pass
 
-
-        bot.send_message(message.chat.id, f'📄 Распознанный текст:\n\n{text[:4000]}')
-
+        bot.send_message(message.chat.id, f"📄 Распознанный текст:\n\n{text[:4000]}")
     except Exception as e:
-        bot.send_message(message.chat.id, f'❌ Ошибка при обработке файла:\n{e}')
+        bot.send_message(message.chat.id, f"❌ Ошибка при обработке файла:\n{e}")
 
 
 
