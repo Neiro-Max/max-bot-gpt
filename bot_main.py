@@ -211,6 +211,28 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
 bot = TeleBot(TELEGRAM_TOKEN)
+# === Business Pro: минимальное меню ===
+# callback-ключи (простые, чтобы не конфликтовали)
+CB_BP_DOC   = "bp_doc"
+CB_BP_OCR   = "bp_ocr"
+CB_BP_EXCEL = "bp_excel"
+CB_BP_GEN   = "bp_gen"
+
+def send_bp_menu(chat_id: int):
+    kb = types.InlineKeyboardMarkup(row_width=1)
+    kb.add(
+        types.InlineKeyboardButton("📄 Анализ документа", callback_data=CB_BP_DOC),
+        types.InlineKeyboardButton("🖼️ OCR / разбор фото", callback_data=CB_BP_OCR),
+        types.InlineKeyboardButton("📊 Excel-ассистент", callback_data=CB_BP_EXCEL),
+        types.InlineKeyboardButton("📝 Сгенерировать документ", callback_data=CB_BP_GEN),
+    )
+    bot.send_message(chat_id, "Выберите функцию Business Pro:", reply_markup=kb)
+
+@bot.message_handler(func=lambda m: m.text == "📂 Business Pro")
+def open_bp_menu(message):
+    # если нужна проверка тарифа — скажи, добавлю условие отдельно
+    send_bp_menu(message.chat.id)
+
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 if WEBHOOK_URL:
     bot.remove_webhook()
