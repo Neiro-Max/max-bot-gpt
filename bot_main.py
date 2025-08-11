@@ -400,8 +400,7 @@ def handle_support(message):
     bot.send_message(
         message.chat.id,
         "🛠 <b>Поддержка</b>\n\nЕсли возникли вопросы или проблемы, напишите разработчику:\n\n"
-        "Telegram: @neiro_max\n"
-        "Email: support@neiro-max.ai",
+        "Telegram: https://t.me/neiro_max_support\n"
         parse_mode="HTML"
     )
 
