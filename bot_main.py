@@ -225,14 +225,11 @@ CB_BP_CONTRACT_CHECK = "bp_contract_check"
 
 def send_bp_menu(chat_id: int):
     kb = types.InlineKeyboardMarkup(row_width=1)
-    kb.add(
-        (types.InlineKeyboardButton("🔎 Проверка договора (PDF/DOCX)", callback_data=CB_BP_CONTRACT_CHECK))
-
-        types.InlineKeyboardButton("📄 Анализ документа", callback_data=CB_BP_DOC),
-        types.InlineKeyboardButton("🖼️ OCR / разбор фото", callback_data=CB_BP_OCR),
-        types.InlineKeyboardButton("📊 Excel-ассистент", callback_data=CB_BP_EXCEL),
-        types.InlineKeyboardButton("📝 Сгенерировать документ", callback_data=CB_BP_GEN),
-    )
+    kb.add(types.InlineKeyboardButton("🔎 Проверка договора (PDF/DOCX)", callback_data=CB_BP_CONTRACT_CHECK))
+    kb.add(types.InlineKeyboardButton("📄 Анализ документа", callback_data=CB_BP_DOC))
+    kb.add(types.InlineKeyboardButton("🖼️ OCR / разбор фото", callback_data=CB_BP_OCR))
+    kb.add(types.InlineKeyboardButton("📊 Excel-ассистент", callback_data=CB_BP_EXCEL))
+    kb.add(types.InlineKeyboardButton("📝 Сгенерировать документ", callback_data=CB_BP_GEN))
     bot.send_message(chat_id, "Выберите функцию Business Pro:", reply_markup=kb)
 
 @bot.callback_query_handler(func=lambda c: c.data == CB_BP_CONTRACT_CHECK)
