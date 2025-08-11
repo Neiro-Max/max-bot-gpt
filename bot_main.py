@@ -394,15 +394,22 @@ def handle_main_menu(message):
 
 @bot.message_handler(func=lambda msg: msg.text == "🚀 Запустить Neiro Max")
 def handle_launch_neiro_max(message):
-    bot.send_message(message.chat.id, "Готов к работе! Чем могу помочь?", reply_markup=main_menu(message.chat.id))
+    bot.send_message(
+        message.chat.id,
+        "Готов к работе! Чем могу помочь?",
+        reply_markup=main_menu(message.chat.id)
+    )
+
 @bot.message_handler(func=lambda msg: msg.text == "📞 Поддержка")
 def handle_support(message):
     bot.send_message(
         message.chat.id,
-        "🛠 <b>Поддержка</b>\n\nЕсли возникли вопросы или проблемы, напишите разработчику:\n\n"
-        "Telegram: https://t.me/neiro_max_support\n"
+        "🛠 <b>Поддержка</b>\n\n"
+        "Если возникли вопросы или проблемы, напишите разработчику:\n\n"
+        "Telegram: https://t.me/neiro_max_support",
         parse_mode="HTML"
     )
+
 
 
 
