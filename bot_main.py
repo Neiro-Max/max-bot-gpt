@@ -214,6 +214,11 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
 bot = TeleBot(TELEGRAM_TOKEN)
+# === Активируем кнопку "📂 Business Pro" ===
+@bot.message_handler(func=lambda m: (m.text or "").strip().startswith("📂 Business Pro"))
+def open_bp_menu_btn(message):
+    send_bp_menu(message.chat.id)
+
 # === Business Pro: минимальное меню ===
 # callback-ключи (простые, чтобы не конфликтовали)
 CB_BP_DOC   = "bp_doc"
