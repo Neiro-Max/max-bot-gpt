@@ -323,15 +323,16 @@ def handle_tariffs(message):
         ("GPT-4o: Business Pro – 2000₽", 2000, "GPT-4o Business Pro"),
     ]
     for label, price, desc in tariffs:
-    # Для Business Pro — оплаты нет, показываем «в разработке»
-    if "Business Pro" in desc:
-        buttons.append(
-            types.inlineKeyboardButton(
-                "🚧 GPT-4o: Business Pro — в разработке",
-                callback_data=CB_TARIFF_BP_WIP
+        # Для Business Pro — оплаты нет, показываем «в разработке»
+        if "Business Pro" in desc:
+            buttons.append(
+                types.InlineKeyboardButton(
+                    "🚧 GPT-4o: Business Pro — в разработке",
+                    callback_data=CB_TARIFF_BP_WIP
+                )
             )
-        )
-        continue
+            continue
+
 
 @bot.callback_query_handler(func=lambda c: c.data == CB_TARIFF_BP_WIP)
 def bp_tariff_wip(call):
