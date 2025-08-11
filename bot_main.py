@@ -243,13 +243,15 @@ def bp_contract_check_start(call):
     print("CB HIT:", call.data, "from", call.from_user.id)
 
 
-    # Режим проверки договора — ждём файл
+        # Режим проверки договора — ждём файл
     BP_STATE[user_id] = {"mode": "contract_check"}
     bot.send_message(
         chat_id,
         "📄 Пришлите файл договора: PDF с текстом / DOCX / TXT / RTF / ODT.\n"
         "Если это скан/фото — предложу распознать и сразу проверить."
     )
+    return
+
 
 
 @bot.message_handler(func=lambda m: m.text == "📂 Business Pro")
