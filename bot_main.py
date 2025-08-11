@@ -175,14 +175,17 @@ def save_history(chat_id, history):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(history[-MAX_HISTORY:], f, ensure_ascii=False, indent=2)
 
+# === Главное меню: показываем Business Pro всегда ===
 def main_menu(chat_id=None):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add("🚀 Запустить Neiro Max")
     markup.add("💡 Сменить стиль", "📄 Тарифы")
     markup.add("📘 Правила", "📞 Поддержка")
-    if chat_id and is_admin(chat_id):
+    markup.add("📂 Business Pro")  # <-- добавлено, без условий
+    if chat_id and int(chat_id) == ADMIN_ID:
         markup.add("♻️ Сброс пробника")
     return markup
+
 
 
 def style_keyboard():
