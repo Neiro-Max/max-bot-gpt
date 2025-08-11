@@ -310,6 +310,7 @@ def handle_ocr_file(message):
 
 
 
+# ===== Тарифы / меню =====
 @bot.message_handler(func=lambda msg: msg.text == "📄 Тарифы")
 def handle_tariffs(message):
     return_url = "https://t.me/NeiroMaxBot"
@@ -322,17 +323,39 @@ def handle_tariffs(message):
         ("GPT-4o: Pro — 499₽", 499, "GPT-4o Pro"),
         ("GPT-4o: Max — 999₽", 999, "GPT-4o Max"),
         ("GPT-4o: Business Pro – 2000₽", 2000, "GPT-4o Business Pro"),
-
     ]
+
     for label, price, desc in tariffs:
-        full_desc = desc  # 🔧 УБРАЛ chat_id
-        url = create_payment(price, full_desc, return_url, message.chat.id)
+        # Business Pro — без оплаты, только уведомление "в разработке"
+        if "Business Pro" in desc:
+            buttons.append(
+                types.InlineKeyboardButton(
+                    "🚧 GPT-4o: Business Pro — в разработке",
+                    callback_data="tariff_bp_wip"
+                )
+            )
+            continue
+
+        # Остальные тарифы — как раньше, с оплатой
+        url = create_payment(price, desc, return_url, message.chat.id)
         if url:
             buttons.append(types.InlineKeyboardButton(f"💳 {label}", url=url))
+
     markup = types.InlineKeyboardMarkup(row_width=1)
     for btn in buttons:
         markup.add(btn)
     bot.send_message(message.chat.id, "📦 Выберите тариф:", reply_markup=markup)
+@bot.callback_query_handler(func=lambda c: c.data == "tariff_bp_wip")
+def bp_tariff_wip(call):
+    try:
+        bot.answer_callback_query(call.id, "В разработке")
+    except Exception:
+        pass
+    bot.send_message(
+        call.message.chat.id,
+        "🚧 Тариф GPT-4o: Business Pro находится в разработке. Оплата временно недоступна."
+    )
+
 
 
 @bot.message_handler(func=lambda msg: msg.text == "♻️ Сброс пробника")
