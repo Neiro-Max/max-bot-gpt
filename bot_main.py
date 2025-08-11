@@ -240,6 +240,8 @@ def bp_contract_check_start(call):
         pass
     chat_id = call.message.chat.id
     user_id = call.from_user.id
+    print("CB HIT:", call.data, "from", call.from_user.id)
+
 
     # Режим проверки договора — ждём файл
     BP_STATE[user_id] = {"mode": "contract_check"}
