@@ -220,16 +220,38 @@ CB_BP_DOC   = "bp_doc"
 CB_BP_OCR   = "bp_ocr"
 CB_BP_EXCEL = "bp_excel"
 CB_BP_GEN   = "bp_gen"
+CB_BP_CONTRACT_CHECK = "bp_contract_check"
+
 
 def send_bp_menu(chat_id: int):
     kb = types.InlineKeyboardMarkup(row_width=1)
     kb.add(
+        (types.InlineKeyboardButton("🔎 Проверка договора (PDF/DOCX)", callback_data=CB_BP_CONTRACT_CHECK))
+
         types.InlineKeyboardButton("📄 Анализ документа", callback_data=CB_BP_DOC),
         types.InlineKeyboardButton("🖼️ OCR / разбор фото", callback_data=CB_BP_OCR),
         types.InlineKeyboardButton("📊 Excel-ассистент", callback_data=CB_BP_EXCEL),
         types.InlineKeyboardButton("📝 Сгенерировать документ", callback_data=CB_BP_GEN),
     )
     bot.send_message(chat_id, "Выберите функцию Business Pro:", reply_markup=kb)
+
+@bot.callback_query_handler(func=lambda c: c.data == CB_BP_CONTRACT_CHECK)
+def bp_contract_check_start(call):
+    try:
+        bot.answer_callback_query(call.id)
+    except Exception:
+        pass
+    chat_id = call.message.chat.id
+    user_id = call.from_user.id
+
+    # Режим проверки договора — ждём файл
+    BP_STATE[user_id] = {"mode": "contract_check"}
+    bot.send_message(
+        chat_id,
+        "📄 Пришлите файл договора: PDF с текстом / DOCX / TXT / RTF / ODT.\n"
+        "Если это скан/фото — предложу распознать и сразу проверить."
+    )
+
 
 @bot.message_handler(func=lambda m: m.text == "📂 Business Pro")
 def open_bp_menu(message):
